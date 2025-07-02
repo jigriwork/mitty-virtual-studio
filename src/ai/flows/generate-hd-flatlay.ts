@@ -37,10 +37,8 @@ const generateHdFlatlayPrompt = ai.definePrompt({
   name: 'generateHdFlatlayPrompt',
   input: {schema: GenerateHdFlatlayInputSchema},
   output: {schema: GenerateHdFlatlayOutputSchema},
-  prompt: `Generate a high-definition, photorealistic flat lay image of the following product. Ensure the image is suitable for e-commerce, with realistic textures and lighting.
-  Source Image: {{media url=productImage}}
-  If the source image is already of high quality, enhance its resolution and detail without altering the product's appearance.
-`,
+  prompt: `Enhance the uploaded product image to a clean, high-resolution flat lay photo. Keep any logos untouched and sharp. Improve lighting and clarity while maintaining realism. Do not alter the design, color, logo placement, or texture. This image will be used for ecommerce display.
+  Product Image: {{media url=productImage}}`,
 });
 
 const generateHdFlatlayFlow = ai.defineFlow(
@@ -55,7 +53,7 @@ const generateHdFlatlayFlow = ai.defineFlow(
       prompt: [
         {media: {url: input.productImage}},
         {
-          text: `Generate a high-definition, photorealistic flat lay image of the product above. Ensure the image is suitable for e-commerce, with realistic textures and lighting. If the source image is already of high quality, enhance its resolution and detail without altering the product's appearance.`,
+          text: `Enhance the uploaded product image to a clean, high-resolution flat lay photo. Keep any logos untouched and sharp. Improve lighting and clarity while maintaining realism. Do not alter the design, color, logo placement, or texture. This image will be used for ecommerce display.`,
         },
       ],
       config: {

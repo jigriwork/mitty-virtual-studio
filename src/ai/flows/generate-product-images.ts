@@ -41,24 +41,16 @@ const generateProductImagesPrompt = ai.definePrompt({
   name: 'generateProductImagesPrompt',
   input: {schema: GenerateProductImagesInputSchema},
   output: {schema: GenerateProductImagesOutputSchema},
-  prompt: `You are an expert photographer specializing in generating e-commerce product images.
-
-You will generate three photorealistic images of the product from different angles (front, side, back) with a consistent model.
-
-Product Category: {{{productCategory}}}
-Sleeve Type: {{#if sleeveType}}{{{sleeveType}}}{{else}}N/A{{/if}}
-Gender: {{{gender}}}
-Fabric Type: {{{fabricType}}}
-Color: {{#if color}}{{{color}}}{{else}}Not specified{{/if}}
-Pattern: {{#if pattern}}{{{pattern}}}{{else}}Not specified{{/if}}
+  prompt: `Generate a realistic photo of a {{gender}} model wearing a {{fabricType}} {{productCategory}}{{#if sleeveType}} ({{sleeveType}}){{/if}}.
+The {{productCategory}} has a {{#if color}}{{color}} base{{/if}}{{#if pattern}} with a {{pattern}} design{{/if}}, inspired by the uploaded product image.
+The model should look natural and professional — standing in a studio with a clean beige or neutral background, wearing black trousers.
+The {{productCategory}} must match the uploaded image’s pattern, color tones, and button style.
+This is for ecommerce, so the {{productCategory}} should appear ironed, fit well on the model, and be photorealistic.
+Do not make the {{productCategory}} look AI-generated or cartoonish. The model’s face should remain the same across all views.
+Use clear studio lighting and high image resolution.
+You will be asked to generate a 'Front View', 'Side View', or 'Back View'.
 Product Image: {{media url=productImage}}
-
-Ensure all images are 100% realistic, with a consistent model face for brand continuity, and are suitable for direct upload to MITTY.CO.IN.
-
-Output:
-Front View: [A photorealistic image of the product's front view]
-Side View: [A photorealistic image of the product's side view]
-Back View: [A photorealistic image of the product's back view]`, 
+`,
 });
 
 const generateProductImagesFlow = ai.defineFlow(
@@ -68,13 +60,16 @@ const generateProductImagesFlow = ai.defineFlow(
     outputSchema: GenerateProductImagesOutputSchema,
   },
   async input => {
+    const createViewPrompt = (view: 'Front' | 'Side' | 'Back') => {
+      const basePrompt = `Generate a realistic photo of a ${input.gender.toLowerCase()} model wearing a ${input.fabricType} ${input.productCategory.toLowerCase()}${input.productCategory === 'Shirt' && input.sleeveType ? ` (${input.sleeveType})` : ''} for ${input.gender === 'Male' ? 'men' : 'women'}. The ${input.productCategory.toLowerCase()} has a ${input.color ? `${input.color} base` : ''}${input.color && input.pattern ? ' with ' : ''}${input.pattern ? `${input.pattern} design` : ''}, inspired by the uploaded product image. The model should look natural and professional — standing in a studio with a clean beige or neutral background, wearing black trousers. The ${input.productCategory.toLowerCase()} must match the uploaded image’s pattern, color tones, and button style. This is for ecommerce, so the ${input.productCategory.toLowerCase()} should appear ironed, fit well on the model, and be photorealistic. Do not make the ${input.productCategory.toLowerCase()} look AI-generated or cartoonish. The model’s face should remain the same across all views. Use clear studio lighting and high image resolution.`;
+      return `${basePrompt} Generate the following view: ${view} View.`;
+    };
+
     const frontViewPromise = ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
       prompt: [
         {media: {url: input.productImage}},
-        {
-          text: `Generate a photorealistic front view image of the product with a consistent model. Product category: ${input.productCategory}, Gender: ${input.gender}, Fabric type: ${input.fabricType}.`,
-        },
+        {text: createViewPrompt('Front')},
       ],
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
@@ -85,9 +80,7 @@ const generateProductImagesFlow = ai.defineFlow(
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
       prompt: [
         {media: {url: input.productImage}},
-        {
-          text: `Generate a photorealistic side view image of the product with a consistent model. Product category: ${input.productCategory}, Gender: ${input.gender}, Fabric type: ${input.fabricType}.`,
-        },
+        {text: createViewPrompt('Side')},
       ],
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
@@ -98,20 +91,16 @@ const generateProductImagesFlow = ai.defineFlow(
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
       prompt: [
         {media: {url: input.productImage}},
-        {
-          text: `Generate a photorealistic back view image of the product with a consistent model. Product category: ${input.productCategory}, Gender: ${input.gender}, Fabric type: ${input.fabricType}.`,
-        },
+        {text: createViewPrompt('Back')},
       ],
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },
     });
 
-    const [frontViewResult, sideViewResult, backViewResult] = await Promise.all([
-      frontViewPromise,
-      sideViewPromise,
-      backViewPromise,
-    ]);
+    const [frontViewResult, sideViewResult, backViewResult] = await Promise.all(
+      [frontViewPromise, sideViewPromise, backViewPromise]
+    );
 
     return {
       frontView: frontViewResult.media!.url,
