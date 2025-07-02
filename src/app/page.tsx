@@ -36,6 +36,10 @@ export default function Home() {
     defaultValues: {
       gender: 'Male',
       productCategory: 'Shirt',
+      fabricType: '',
+      color: '',
+      pattern: '',
+      sleeveType: 'Full Sleeve',
     },
   });
 
