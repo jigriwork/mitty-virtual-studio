@@ -44,11 +44,11 @@ Do not add any brand names or logos.
 
 Maintain true-to-life stitching, texture, and lace details. No modifications to the shoe shape or style. Use clean lighting and neutral background for a professional ecommerce feel. Match the uploaded image closely.`
     } else {
-        promptText = `Enhance the uploaded product image into a clean, high-resolution flat lay. Retain the exact button placement, and color tone. Do not add or alter any brand logos.
+        promptText = `Enhance the uploaded shirt image into a clean, high-resolution flat lay. Retain the exact branding (MITTY logo), button placement, and color tone.
 
-Improve lighting, remove background shadows, and increase sharpness while preserving fabric texture and print accuracy. Do not alter the product's layout or style.
+Improve lighting, remove background shadows, and increase sharpness while preserving fabric texture and print accuracy. Do not alter the shirt's layout, style, or logo.
 
-The result should look studio-shot and realistic — suitable for ecommerce product listing. Keep proportions natural.`
+The result should look studio-shot and realistic — suitable for ecommerce product listing. Keep proportions natural and logo untouched.`
     }
     
     const {media} = await ai.generate({
