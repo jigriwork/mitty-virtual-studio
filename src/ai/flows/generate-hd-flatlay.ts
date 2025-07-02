@@ -40,13 +40,15 @@ const generateHdFlatlayFlow = ai.defineFlow(
         const forGender = input.gender === 'Male' ? "men's" : "women's";
         promptText = `Generate a high-resolution top view (flat lay) image of a single ${forGender} formal lace-up shoe in ${material} and ${color}. The shoe should lie flat with laces and collar clearly visible from above.
 
+Do not add any brand names or logos.
+
 Maintain true-to-life stitching, texture, and lace details. No modifications to the shoe shape or style. Use clean lighting and neutral background for a professional ecommerce feel. Match the uploaded image closely.`
     } else {
-        promptText = `Enhance the uploaded product image into a clean, high-resolution flat lay. Retain the exact branding (MITTY logo), button placement, and color tone.
+        promptText = `Enhance the uploaded product image into a clean, high-resolution flat lay. Retain the exact button placement, and color tone. Do not add or alter any brand logos.
 
-Improve lighting, remove background shadows, and increase sharpness while preserving fabric texture and print accuracy. Do not alter the product's layout, style, or logo.
+Improve lighting, remove background shadows, and increase sharpness while preserving fabric texture and print accuracy. Do not alter the product's layout or style.
 
-The result should look studio-shot and realistic — suitable for ecommerce product listing. Keep proportions natural and logo untouched.`
+The result should look studio-shot and realistic — suitable for ecommerce product listing. Keep proportions natural.`
     }
     
     const {media} = await ai.generate({
