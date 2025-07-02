@@ -10,15 +10,25 @@ import { Skeleton } from './ui/skeleton';
 
 interface ResultsDisplayProps {
   results: GenerationResults | null;
-  loadingState: { all: boolean; modelImages: boolean; flatlay: boolean; };
-  onRegenerateModelImages: () => void;
+  loadingState: { 
+    all: boolean; 
+    frontView: boolean; 
+    sideView: boolean;
+    backView: boolean;
+    flatlay: boolean; 
+  };
+  onRegenerateFrontView: () => void;
+  onRegenerateSideView: () => void;
+  onRegenerateBackView: () => void;
   onRegenerateFlatlay: () => void;
 }
 
 export function ResultsDisplay({
   results,
   loadingState,
-  onRegenerateModelImages,
+  onRegenerateFrontView,
+  onRegenerateSideView,
+  onRegenerateBackView,
   onRegenerateFlatlay,
 }: ResultsDisplayProps) {
   
@@ -99,22 +109,22 @@ export function ResultsDisplay({
           <ImageCard
             title="Front View"
             imageSrc={frontView}
-            isLoading={loadingState.modelImages}
-            onRegenerate={onRegenerateModelImages}
+            isLoading={loadingState.frontView}
+            onRegenerate={onRegenerateFrontView}
             fileName={`${productTitle} Front.png`}
           />
           <ImageCard
             title="Side View"
             imageSrc={sideView}
-            isLoading={loadingState.modelImages}
-            onRegenerate={onRegenerateModelImages}
+            isLoading={loadingState.sideView}
+            onRegenerate={onRegenerateSideView}
             fileName={`${productTitle} Side.png`}
           />
           <ImageCard
             title="Back View"
             imageSrc={backView}
-            isLoading={loadingState.modelImages}
-            onRegenerate={onRegenerateModelImages}
+            isLoading={loadingState.backView}
+            onRegenerate={onRegenerateBackView}
             fileName={`${productTitle} Back.png`}
           />
           <ImageCard

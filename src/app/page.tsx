@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { generateHdFlatlay } from '@/ai/flows/generate-hd-flatlay';
-import { generateProductImages } from '@/ai/flows/generate-product-images';
+import { generateFrontView } from '@/ai/flows/generate-front-view';
+import { generateSideView } from '@/ai/flows/generate-side-view';
+import { generateBackView } from '@/ai/flows/generate-back-view';
 import { generateProductTitleDescription } from '@/ai/flows/generate-product-title-description';
 import { MittyLogo } from '@/components/mitty-logo';
 import { ProductForm } from '@/components/product-form';
@@ -13,11 +15,12 @@ import { useToast } from '@/hooks/use-toast';
 import type { GenerationResults, ProductFormValues } from '@/lib/types';
 import { productFormSchema } from '@/lib/types';
 import { fileToDataUri } from '@/lib/utils';
-import { Separator } from '@/components/ui/separator';
 
 type GeneratingState = {
   all: boolean;
-  modelImages: boolean;
+  frontView: boolean;
+  sideView: boolean;
+  backView: boolean;
   flatlay: boolean;
 };
 
@@ -26,7 +29,9 @@ export default function Home() {
   const [productImageUri, setProductImageUri] = useState<string | null>(null);
   const [generating, setGenerating] = useState<GeneratingState>({
     all: false,
-    modelImages: false,
+    frontView: false,
+    sideView: false,
+    backView: false,
     flatlay: false,
   });
   const { toast } = useToast();
@@ -44,7 +49,7 @@ export default function Home() {
   });
 
   const onSubmit = async (data: ProductFormValues) => {
-    setGenerating({ all: true, modelImages: true, flatlay: true });
+    setGenerating({ all: true, frontView: true, sideView: true, backView: true, flatlay: true });
     setResults(null);
     try {
       const imageUri = await fileToDataUri(data.productImage[0]);
@@ -52,16 +57,18 @@ export default function Home() {
       
       const flowInput = { ...data, productImage: imageUri };
 
-      const [modelImages, flatlay, text] = await Promise.all([
-        generateProductImages(flowInput),
+      const [frontResult, sideResult, backResult, flatlay, text] = await Promise.all([
+        generateFrontView(flowInput),
+        generateSideView(flowInput),
+        generateBackView(flowInput),
         generateHdFlatlay({ productImage: imageUri }),
         generateProductTitleDescription(flowInput),
       ]);
       
       setResults({
-        frontView: modelImages.frontView,
-        sideView: modelImages.sideView,
-        backView: modelImages.backView,
+        frontView: frontResult.frontView,
+        sideView: sideResult.sideView,
+        backView: backResult.backView,
         hdFlatlayImage: flatlay.hdFlatlayImage,
         productTitle: text.productTitle,
         productDescription: text.productDescription,
@@ -75,28 +82,58 @@ export default function Home() {
         description: 'An error occurred while generating assets. Please check the console and try again.',
       });
     } finally {
-      setGenerating({ all: false, modelImages: false, flatlay: false });
+      setGenerating({ all: false, frontView: false, sideView: false, backView: false, flatlay: false });
     }
   };
 
-  const handleRegenerateModelImages = async () => {
+  const handleRegenerateFrontView = async () => {
     if (!productImageUri) return;
-    setGenerating((prev) => ({ ...prev, modelImages: true }));
+    setGenerating((prev) => ({ ...prev, frontView: true }));
     try {
       const data = form.getValues();
       const flowInput = { ...data, productImage: productImageUri };
-      const modelImages = await generateProductImages(flowInput);
-      setResults((prev) => (prev ? { ...prev, ...modelImages } : null));
-       toast({ title: "Model Images Regenerated", description: "The front, side, and back views have been updated." });
+      const result = await generateFrontView(flowInput);
+      setResults((prev) => (prev ? { ...prev, ...result } : null));
+       toast({ title: "Front View Regenerated", description: "The front view image has been updated." });
     } catch (e) {
       console.error(e);
-      toast({
-        variant: 'destructive',
-        title: 'Regeneration Failed',
-        description: 'Could not regenerate model images.',
-      });
+      toast({ variant: 'destructive', title: 'Regeneration Failed', description: 'Could not regenerate the front view image.' });
     } finally {
-      setGenerating((prev) => ({ ...prev, modelImages: false }));
+      setGenerating((prev) => ({ ...prev, frontView: false }));
+    }
+  };
+
+  const handleRegenerateSideView = async () => {
+    if (!productImageUri) return;
+    setGenerating((prev) => ({ ...prev, sideView: true }));
+    try {
+      const data = form.getValues();
+      const flowInput = { ...data, productImage: productImageUri };
+      const result = await generateSideView(flowInput);
+      setResults((prev) => (prev ? { ...prev, ...result } : null));
+       toast({ title: "Side View Regenerated", description: "The side view image has been updated." });
+    } catch (e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'Regeneration Failed', description: 'Could not regenerate the side view image.' });
+    } finally {
+      setGenerating((prev) => ({ ...prev, sideView: false }));
+    }
+  };
+
+  const handleRegenerateBackView = async () => {
+    if (!productImageUri) return;
+    setGenerating((prev) => ({ ...prev, backView: true }));
+    try {
+      const data = form.getValues();
+      const flowInput = { ...data, productImage: productImageUri };
+      const result = await generateBackView(flowInput);
+      setResults((prev) => (prev ? { ...prev, ...result } : null));
+       toast({ title: "Back View Regenerated", description: "The back view image has been updated." });
+    } catch (e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'Regeneration Failed', description: 'Could not regenerate the back view image.' });
+    } finally {
+      setGenerating((prev) => ({ ...prev, backView: false }));
     }
   };
 
@@ -136,7 +173,9 @@ export default function Home() {
             <ResultsDisplay 
               results={results} 
               loadingState={generating}
-              onRegenerateModelImages={handleRegenerateModelImages}
+              onRegenerateFrontView={handleRegenerateFrontView}
+              onRegenerateSideView={handleRegenerateSideView}
+              onRegenerateBackView={handleRegenerateBackView}
               onRegenerateFlatlay={handleRegenerateFlatlay}
             />
           </div>
