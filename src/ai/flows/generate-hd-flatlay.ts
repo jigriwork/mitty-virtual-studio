@@ -45,13 +45,11 @@ const generateHdFlatlayFlow = ai.defineFlow(
       prompt: [
         {media: {url: input.productImage}},
         {
-          text: `You are an expert photo editor. Your task is to enhance the provided product image into a high-definition, professional flat lay photograph suitable for e-commerce.
+          text: `Enhance the uploaded product image into a clean, high-resolution flat lay. Retain the exact branding (MITTY logo), button placement, and color tone.
 
-**Crucial Instructions:**
-1.  **DO NOT CHANGE THE LOGO.** The logo on the product must remain exactly as it is in the original image. It must be kept sharp, clear, and untouched. Do not redraw, reinterpret, or alter the logo in any way.
-2.  **PRESERVE ORIGINAL DESIGN:** Do not alter the product's design, color, pattern, texture, or button placement. The goal is enhancement, not redesign.
-3.  **CREATE A FLAT LAY:** Arrange the product in a clean, flat lay presentation on a neutral, slightly textured background (like light gray linen or a white wooden surface).
-4.  **ENHANCE QUALITY:** Improve the lighting to be bright and even, like in a professional studio. Enhance the overall clarity and resolution of the image to make it look high-definition. Ensure the final image is photorealistic.`,
+Improve lighting, remove background shadows, and increase sharpness while preserving fabric texture and print accuracy. Do not alter the product's layout, style, or logo.
+
+The result should look studio-shot and realistic — suitable for ecommerce product listing. Keep proportions natural and logo untouched.`,
         },
       ],
       config: {

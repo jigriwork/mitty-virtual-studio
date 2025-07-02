@@ -45,15 +45,33 @@ const generateProductImagesFlow = ai.defineFlow(
   },
   async input => {
     const createViewPrompt = (view: 'Front' | 'Side' | 'Back') => {
-      return `Generate a single, photorealistic e-commerce photo of one ${input.gender.toLowerCase()} model from the ${view.toLowerCase()} view.
-The model is wearing a ${input.fabricType} ${input.productCategory.toLowerCase()}${input.productCategory === 'Shirt' && input.sleeveType ? ` (${input.sleeveType})` : ''}.
-The ${input.productCategory.toLowerCase()} has a ${input.color ? `${input.color} base` : ''}${input.color && input.pattern ? ' with ' : ''}${input.pattern ? `${input.pattern} design` : ''}, inspired by the uploaded product image.
-The model should look natural and professional, standing in a studio with a clean beige or neutral background, and wearing black trousers.
-The ${input.productCategory.toLowerCase()} must match the uploaded image’s pattern, color tones, and button style.
-This is for an e-commerce website, so the ${input.productCategory.toLowerCase()} must look ironed, fit the model well, and be highly photorealistic.
-Do not make the image look AI-generated or cartoonish. The model's face and body must be consistent across all views.
-The final image must only contain one person and show the requested ${view.toLowerCase()} view.
-Use clear studio lighting and ensure high image resolution.`;
+      const sleeveType = input.productCategory === 'Shirt' ? input.sleeveType : '';
+      const productDescription = `${input.fabricType} ${sleeveType} ${input.productCategory.toLowerCase()}`.trim();
+      const gender = input.gender.toLowerCase();
+      const forGender = gender === 'male' ? 'men' : 'women';
+      const colorPattern = `with a ${input.color || 'specified'} base and ${input.pattern || 'specified'} design`;
+
+      const prompts = {
+        Front: `Generate a photorealistic front view of a ${gender} model standing straight in a studio setup. He is wearing a ${productDescription} for ${forGender} ${colorPattern}, accurately reflecting the style and print of the uploaded product image.
+
+The model should have a neutral expression, facing forward, with both arms straight and visible. ${input.productCategory === 'Shirt' ? 'Shirt sleeves must not be folded.' : ''} The ${input.productCategory.toLowerCase()} should be well-fitted, ironed, and worn with black trousers.
+
+The lighting should be clean and soft, like a professional ecommerce photoshoot. The ${input.productCategory.toLowerCase()} must match the uploaded product exactly — including button color, collar style, and print placement.
+
+Background should be solid beige or light grey. The model’s face must remain the same across all other views.`,
+        Side: `Generate a photorealistic side view of the same ${gender} model, turned 90 degrees to his left, in a studio environment. He is wearing the same ${productDescription} for ${forGender}, based on the uploaded product image ${colorPattern}.
+
+The side profile should clearly show sleeve length and ${input.productCategory.toLowerCase()} fit. ${input.productCategory === 'Shirt' ? 'Sleeves should be worn normally — no folding or rolling.' : ''} Use clean studio lighting and a soft beige background.
+
+Ensure color accuracy, fabric texture, and button/collar details match the uploaded product image. The model must be identical to the front view — same face, hair, and posture — to ensure consistency across the product shoot.`,
+        Back: `Generate a photorealistic back view of the same ${gender} model standing straight in a studio setup, wearing the same ${productDescription} for ${forGender} ${colorPattern}, based on the uploaded product image.
+
+The model should face away from the camera, arms naturally at the side. The ${input.productCategory.toLowerCase()} should fit cleanly with no wrinkles or folds. ${input.productCategory === 'Shirt' ? 'Sleeves must be worn straight — not rolled or pushed up.' : ''}
+
+Background should remain the same as front and side views (solid beige). The ${input.productCategory.toLowerCase()} pattern should continue realistically on the back, matching style and fabric shown in the uploaded image. Model must be identical to other views.`,
+      };
+      
+      return prompts[view];
     };
 
     const frontViewPromise = ai.generate({
