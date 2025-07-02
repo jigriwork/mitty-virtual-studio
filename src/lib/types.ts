@@ -9,7 +9,7 @@ export const productFormSchema = z.object({
   }),
   sleeveType: z.enum(['Full Sleeve', 'Half Sleeve']).optional(),
   gender: z.enum(['Male', 'Female']),
-  fabricType: z.string().min(1, 'Fabric type is required.'),
+  fabricType: z.string().min(1, 'Fabric or material type is required.'),
   color: z.string().optional(),
   pattern: z.string().optional(),
   productImage: z
@@ -35,4 +35,5 @@ export type GenerationResults = {
   hdFlatlayImage: string;
   productTitle: string;
   productDescription: string;
+  productCategory: 'Shirt' | 'Trousers' | 'Jeans' | 'Shoes';
 };

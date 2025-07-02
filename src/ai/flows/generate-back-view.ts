@@ -28,17 +28,28 @@ const generateBackViewFlow = ai.defineFlow(
     outputSchema: GenerateBackViewOutputSchema,
   },
   async (input) => {
-    const sleeveType = input.productCategory === 'Shirt' ? input.sleeveType : '';
-    const productDescription = `${input.fabricType} ${sleeveType} ${input.productCategory.toLowerCase()}`.trim();
-    const gender = input.gender.toLowerCase();
-    const forGender = gender === 'male' ? 'men' : 'women';
-    const colorPattern = `with a ${input.color || 'specified'} base and ${input.pattern || 'specified'} design`;
+    let promptText = '';
 
-    const promptText = `Generate a photorealistic back view of the same ${gender} model standing straight in a studio setup, wearing the same ${productDescription} for ${forGender} ${colorPattern}, based on the uploaded product image.
+    if (input.productCategory === 'Shoes') {
+      const material = input.fabricType;
+      const color = input.color || 'specified';
+      const forGender = input.gender === 'Male' ? "men's" : "women's";
+      promptText = `Generate a photorealistic back view of a single ${forGender} formal shoe in ${color} and ${material}, showing the heel side. The image should focus on the heel shape, stitching, and upper collar detail.
+
+Use a clean studio background (light beige). No AI distortions. Shoe must look premium, formal, and should match the uploaded image’s design perfectly. Ideal for ecommerce product display.`;
+    } else {
+      const sleeveType = input.productCategory === 'Shirt' ? input.sleeveType : '';
+      const productDescription = `${input.fabricType} ${sleeveType} ${input.productCategory.toLowerCase()}`.trim();
+      const gender = input.gender.toLowerCase();
+      const forGender = gender === 'male' ? 'men' : 'women';
+      const colorPattern = `with a ${input.color || 'specified'} base and ${input.pattern || 'specified'} design`;
+
+      promptText = `Generate a photorealistic back view of the same ${gender} model standing straight in a studio setup, wearing the same ${productDescription} for ${forGender} ${colorPattern}, based on the uploaded product image.
 
 The model should face away from the camera, arms naturally at the side. Shirt should fit cleanly with no wrinkles or folds. Sleeves must be worn straight — not rolled or pushed up.
 
 Background should remain the same as front and side views (solid beige). Shirt pattern should continue realistically on the back, matching style and fabric shown in the uploaded image. Model must be identical to other views.`;
+    }
 
     const {media} = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',

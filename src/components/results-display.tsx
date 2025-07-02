@@ -36,7 +36,7 @@ export function ResultsDisplay({
     if (!results) return;
 
     const zip = new JSZip();
-    const { productTitle, productDescription, frontView, sideView, backView, hdFlatlayImage } = results;
+    const { productTitle, productDescription, frontView, sideView, backView, hdFlatlayImage, productCategory } = results;
     
     const shortTitle = productTitle
       .replace(/Mitty\s/i, '')
@@ -49,10 +49,12 @@ export function ResultsDisplay({
       zip.file(filename, base64, { base64: true });
     };
 
+    const isShoes = productCategory === 'Shoes';
+
     addImageToZip(frontView, `${shortTitle} Front.png`);
     addImageToZip(sideView, `${shortTitle} Side.png`);
     addImageToZip(backView, `${shortTitle} Back.png`);
-    addImageToZip(hdFlatlayImage, `${shortTitle} Flat Lay.png`);
+    addImageToZip(hdFlatlayImage, `${shortTitle} ${isShoes ? 'Top' : 'Flat Lay'}.png`);
 
     const txtContent = `Product Title: ${productTitle}\n\nProduct Description:\n${productDescription}`;
     zip.file('Product_Info.txt', txtContent);
@@ -84,7 +86,8 @@ export function ResultsDisplay({
     );
   }
 
-  const { productTitle, productDescription, frontView, sideView, backView, hdFlatlayImage } = results;
+  const { productTitle, productDescription, frontView, sideView, backView, hdFlatlayImage, productCategory } = results;
+  const isShoes = productCategory === 'Shoes';
 
   return (
     <div className="p-6 bg-background h-full overflow-y-auto">
@@ -128,11 +131,11 @@ export function ResultsDisplay({
             fileName={`${productTitle} Back.png`}
           />
           <ImageCard
-            title="HD Flat Lay"
+            title={isShoes ? "Top View" : "HD Flat Lay"}
             imageSrc={hdFlatlayImage}
             isLoading={loadingState.flatlay}
             onRegenerate={onRegenerateFlatlay}
-            fileName={`${productTitle} Flat Lay.png`}
+            fileName={`${productTitle} ${isShoes ? 'Top' : 'Flat Lay'}.png`}
           />
         </div>
       </div>

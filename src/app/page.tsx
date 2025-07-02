@@ -61,7 +61,7 @@ export default function Home() {
         generateFrontView(flowInput),
         generateSideView(flowInput),
         generateBackView(flowInput),
-        generateHdFlatlay({ productImage: imageUri }),
+        generateHdFlatlay(flowInput),
         generateProductTitleDescription(flowInput),
       ]);
       
@@ -72,6 +72,7 @@ export default function Home() {
         hdFlatlayImage: flatlay.hdFlatlayImage,
         productTitle: text.productTitle,
         productDescription: text.productDescription,
+        productCategory: data.productCategory,
       });
 
     } catch (e) {
@@ -141,15 +142,17 @@ export default function Home() {
     if (!productImageUri) return;
     setGenerating((prev) => ({ ...prev, flatlay: true }));
     try {
-      const flatlay = await generateHdFlatlay({ productImage: productImageUri });
+      const data = form.getValues();
+      const flowInput = { ...data, productImage: productImageUri };
+      const flatlay = await generateHdFlatlay(flowInput);
       setResults((prev) => prev ? { ...prev, hdFlatlayImage: flatlay.hdFlatlayImage } : null);
-      toast({ title: "HD Flat Lay Regenerated", description: "The flat lay image has been updated." });
+      toast({ title: "HD Flat Lay / Top View Regenerated", description: "The image has been updated." });
     } catch (e) {
       console.error(e);
       toast({
         variant: 'destructive',
         title: 'Regeneration Failed',
-        description: 'Could not regenerate the flat lay image.',
+        description: 'Could not regenerate the image.',
       });
     } finally {
       setGenerating((prev) => ({ ...prev, flatlay: false }));
