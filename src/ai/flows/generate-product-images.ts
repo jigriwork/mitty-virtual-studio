@@ -37,22 +37,6 @@ export async function generateProductImages(input: GenerateProductImagesInput): 
   return generateProductImagesFlow(input);
 }
 
-const generateProductImagesPrompt = ai.definePrompt({
-  name: 'generateProductImagesPrompt',
-  input: {schema: GenerateProductImagesInputSchema},
-  output: {schema: GenerateProductImagesOutputSchema},
-  prompt: `Generate a realistic photo of a {{gender}} model wearing a {{fabricType}} {{productCategory}}{{#if sleeveType}} ({{sleeveType}}){{/if}}.
-The {{productCategory}} has a {{#if color}}{{color}} base{{/if}}{{#if pattern}} with a {{pattern}} design{{/if}}, inspired by the uploaded product image.
-The model should look natural and professional — standing in a studio with a clean beige or neutral background, wearing black trousers.
-The {{productCategory}} must match the uploaded image’s pattern, color tones, and button style.
-This is for ecommerce, so the {{productCategory}} should appear ironed, fit well on the model, and be photorealistic.
-Do not make the {{productCategory}} look AI-generated or cartoonish. The model’s face should remain the same across all views.
-Use clear studio lighting and high image resolution.
-You will be asked to generate a 'Front View', 'Side View', or 'Back View'.
-Product Image: {{media url=productImage}}
-`,
-});
-
 const generateProductImagesFlow = ai.defineFlow(
   {
     name: 'generateProductImagesFlow',
@@ -61,8 +45,15 @@ const generateProductImagesFlow = ai.defineFlow(
   },
   async input => {
     const createViewPrompt = (view: 'Front' | 'Side' | 'Back') => {
-      const basePrompt = `Generate a realistic photo of a ${input.gender.toLowerCase()} model wearing a ${input.fabricType} ${input.productCategory.toLowerCase()}${input.productCategory === 'Shirt' && input.sleeveType ? ` (${input.sleeveType})` : ''} for ${input.gender === 'Male' ? 'men' : 'women'}. The ${input.productCategory.toLowerCase()} has a ${input.color ? `${input.color} base` : ''}${input.color && input.pattern ? ' with ' : ''}${input.pattern ? `${input.pattern} design` : ''}, inspired by the uploaded product image. The model should look natural and professional — standing in a studio with a clean beige or neutral background, wearing black trousers. The ${input.productCategory.toLowerCase()} must match the uploaded image’s pattern, color tones, and button style. This is for ecommerce, so the ${input.productCategory.toLowerCase()} should appear ironed, fit well on the model, and be photorealistic. Do not make the ${input.productCategory.toLowerCase()} look AI-generated or cartoonish. The model’s face should remain the same across all views. Use clear studio lighting and high image resolution.`;
-      return `${basePrompt} Generate the following view: ${view} View.`;
+      return `Generate a single, photorealistic e-commerce photo of one ${input.gender.toLowerCase()} model from the ${view.toLowerCase()} view.
+The model is wearing a ${input.fabricType} ${input.productCategory.toLowerCase()}${input.productCategory === 'Shirt' && input.sleeveType ? ` (${input.sleeveType})` : ''}.
+The ${input.productCategory.toLowerCase()} has a ${input.color ? `${input.color} base` : ''}${input.color && input.pattern ? ' with ' : ''}${input.pattern ? `${input.pattern} design` : ''}, inspired by the uploaded product image.
+The model should look natural and professional, standing in a studio with a clean beige or neutral background, and wearing black trousers.
+The ${input.productCategory.toLowerCase()} must match the uploaded image’s pattern, color tones, and button style.
+This is for an e-commerce website, so the ${input.productCategory.toLowerCase()} must look ironed, fit the model well, and be highly photorealistic.
+Do not make the image look AI-generated or cartoonish. The model's face and body must be consistent across all views.
+The final image must only contain one person and show the requested ${view.toLowerCase()} view.
+Use clear studio lighting and ensure high image resolution.`;
     };
 
     const frontViewPromise = ai.generate({

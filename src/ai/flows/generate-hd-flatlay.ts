@@ -33,14 +33,6 @@ export async function generateHdFlatlay(input: GenerateHdFlatlayInput): Promise<
   return generateHdFlatlayFlow(input);
 }
 
-const generateHdFlatlayPrompt = ai.definePrompt({
-  name: 'generateHdFlatlayPrompt',
-  input: {schema: GenerateHdFlatlayInputSchema},
-  output: {schema: GenerateHdFlatlayOutputSchema},
-  prompt: `Enhance the uploaded product image to a clean, high-resolution flat lay photo. Keep any logos untouched and sharp. Improve lighting and clarity while maintaining realism. Do not alter the design, color, logo placement, or texture. This image will be used for ecommerce display.
-  Product Image: {{media url=productImage}}`,
-});
-
 const generateHdFlatlayFlow = ai.defineFlow(
   {
     name: 'generateHdFlatlayFlow',
@@ -53,7 +45,13 @@ const generateHdFlatlayFlow = ai.defineFlow(
       prompt: [
         {media: {url: input.productImage}},
         {
-          text: `Enhance the uploaded product image to a clean, high-resolution flat lay photo. Keep any logos untouched and sharp. Improve lighting and clarity while maintaining realism. Do not alter the design, color, logo placement, or texture. This image will be used for ecommerce display.`,
+          text: `You are an expert photo editor. Your task is to enhance the provided product image into a high-definition, professional flat lay photograph suitable for e-commerce.
+
+**Crucial Instructions:**
+1.  **DO NOT CHANGE THE LOGO.** The logo on the product must remain exactly as it is in the original image. It must be kept sharp, clear, and untouched. Do not redraw, reinterpret, or alter the logo in any way.
+2.  **PRESERVE ORIGINAL DESIGN:** Do not alter the product's design, color, pattern, texture, or button placement. The goal is enhancement, not redesign.
+3.  **CREATE A FLAT LAY:** Arrange the product in a clean, flat lay presentation on a neutral, slightly textured background (like light gray linen or a white wooden surface).
+4.  **ENHANCE QUALITY:** Improve the lighting to be bright and even, like in a professional studio. Enhance the overall clarity and resolution of the image to make it look high-definition. Ensure the final image is photorealistic.`,
         },
       ],
       config: {
