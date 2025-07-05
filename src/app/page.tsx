@@ -7,6 +7,7 @@ import { generateHdFlatlay } from '@/ai/flows/generate-hd-flatlay';
 import { generateFrontView } from '@/ai/flows/generate-front-view';
 import { generateSideView } from '@/ai/flows/generate-side-view';
 import { generateBackView } from '@/ai/flows/generate-back-view';
+import { generateTextureView } from '@/ai/flows/generate-texture-view';
 import { generateProductTitleDescription } from '@/ai/flows/generate-product-title-description';
 import { MittyLogo } from '@/components/mitty-logo';
 import { ProductForm } from '@/components/product-form';
@@ -15,23 +16,26 @@ import { useToast } from '@/hooks/use-toast';
 import type { GenerationResults, ProductFormValues } from '@/lib/types';
 import { productFormSchema } from '@/lib/types';
 import { fileToDataUri } from '@/lib/utils';
+import type { GenerateProductViewInput } from '@/ai/flows/types';
 
 type GeneratingState = {
   all: boolean;
   frontView: boolean;
   sideView: boolean;
   backView: boolean;
+  textureView: boolean;
   flatlay: boolean;
 };
 
 export default function Home() {
   const [results, setResults] = useState<GenerationResults | null>(null);
-  const [productImageUri, setProductImageUri] = useState<string | null>(null);
+  const [productImageUris, setProductImageUris] = useState<{[key:string]: string}>({});
   const [generating, setGenerating] = useState<GeneratingState>({
     all: false,
     frontView: false,
     sideView: false,
     backView: false,
+    textureView: false,
     flatlay: false,
   });
   const { toast } = useToast();
@@ -45,35 +49,75 @@ export default function Home() {
       color: '',
       pattern: '',
       sleeveType: 'Full Sleeve',
+      fitType: '',
+      materialStretch: 'No',
     },
   });
 
   const onSubmit = async (data: ProductFormValues) => {
-    setGenerating({ all: true, frontView: true, sideView: true, backView: true, flatlay: true });
+    setGenerating({ all: true, frontView: true, sideView: true, backView: true, textureView: true, flatlay: true });
     setResults(null);
+    setProductImageUris({});
+    
     try {
-      const imageUri = await fileToDataUri(data.productImage[0]);
-      setProductImageUri(imageUri);
-      
-      const flowInput = { ...data, productImage: imageUri };
+      const uris: {[key: string]: string} = {};
+      const flowInput: GenerateProductViewInput = { ...data, fitType: data.fitType || undefined };
 
-      const [frontResult, sideResult, backResult, flatlay, text] = await Promise.all([
-        generateFrontView(flowInput),
-        generateSideView(flowInput),
-        generateBackView(flowInput),
-        generateHdFlatlay(flowInput),
-        generateProductTitleDescription(flowInput),
-      ]);
-      
-      setResults({
-        frontView: frontResult.frontView,
-        sideView: sideResult.sideView,
-        backView: backResult.backView,
-        hdFlatlayImage: flatlay.hdFlatlayImage,
-        productTitle: text.productTitle,
-        productDescription: text.productDescription,
-        productCategory: data.productCategory,
-      });
+      if (data.productCategory === 'Trousers') {
+        const [frontUri, fabricUri, backUri] = await Promise.all([
+          fileToDataUri(data.productImageFront[0]),
+          fileToDataUri(data.productImageFabric[0]),
+          fileToDataUri(data.productImageBack[0]),
+        ]);
+        uris.front = frontUri;
+        uris.fabric = fabricUri;
+        uris.back = backUri;
+        flowInput.productImageFront = frontUri;
+        flowInput.productImageFabric = fabricUri;
+        flowInput.productImageBack = backUri;
+
+        const [frontResult, backResult, textureResult, flatlayResult, textResult] = await Promise.all([
+          generateFrontView(flowInput),
+          generateBackView(flowInput),
+          generateTextureView(flowInput),
+          generateHdFlatlay(flowInput),
+          generateProductTitleDescription(flowInput),
+        ]);
+        
+        setResults({
+          frontView: frontResult.frontView,
+          backView: backResult.backView,
+          textureView: textureResult.textureView,
+          hdFlatlayImage: flatlayResult.hdFlatlayImage,
+          productTitle: textResult.productTitle,
+          productDescription: textResult.productDescription,
+          productCategory: data.productCategory,
+        });
+
+      } else {
+        const imageUri = await fileToDataUri(data.productImage[0]);
+        uris.main = imageUri;
+        flowInput.productImage = imageUri;
+        
+        const [frontResult, sideResult, backResult, flatlayResult, textResult] = await Promise.all([
+          generateFrontView(flowInput),
+          generateSideView(flowInput),
+          generateBackView(flowInput),
+          generateHdFlatlay(flowInput),
+          generateProductTitleDescription(flowInput),
+        ]);
+        
+        setResults({
+          frontView: frontResult.frontView,
+          sideView: sideResult.sideView,
+          backView: backResult.backView,
+          hdFlatlayImage: flatlayResult.hdFlatlayImage,
+          productTitle: textResult.productTitle,
+          productDescription: textResult.productDescription,
+          productCategory: data.productCategory,
+        });
+      }
+      setProductImageUris(uris);
 
     } catch (e) {
       console.error(e);
@@ -83,17 +127,27 @@ export default function Home() {
         description: 'An error occurred while generating assets. Please check the console and try again.',
       });
     } finally {
-      setGenerating({ all: false, frontView: false, sideView: false, backView: false, flatlay: false });
+      setGenerating({ all: false, frontView: false, sideView: false, backView: false, textureView: false, flatlay: false });
     }
   };
 
+  const getFlowInputForRegen = (): GenerateProductViewInput => {
+    const data = form.getValues();
+    return {
+      ...data,
+      fitType: data.fitType || undefined,
+      productImage: productImageUris.main,
+      productImageFront: productImageUris.front,
+      productImageFabric: productImageUris.fabric,
+      productImageBack: productImageUris.back,
+    };
+  }
+
   const handleRegenerateFrontView = async () => {
-    if (!productImageUri) return;
+    if (Object.keys(productImageUris).length === 0) return;
     setGenerating((prev) => ({ ...prev, frontView: true }));
     try {
-      const data = form.getValues();
-      const flowInput = { ...data, productImage: productImageUri };
-      const result = await generateFrontView(flowInput);
+      const result = await generateFrontView(getFlowInputForRegen());
       setResults((prev) => (prev ? { ...prev, ...result } : null));
        toast({ title: "Front View Regenerated", description: "The front view image has been updated." });
     } catch (e) {
@@ -105,12 +159,10 @@ export default function Home() {
   };
 
   const handleRegenerateSideView = async () => {
-    if (!productImageUri) return;
+    if (!productImageUris.main) return;
     setGenerating((prev) => ({ ...prev, sideView: true }));
     try {
-      const data = form.getValues();
-      const flowInput = { ...data, productImage: productImageUri };
-      const result = await generateSideView(flowInput);
+      const result = await generateSideView(getFlowInputForRegen());
       setResults((prev) => (prev ? { ...prev, ...result } : null));
        toast({ title: "Side View Regenerated", description: "The side view image has been updated." });
     } catch (e) {
@@ -122,12 +174,10 @@ export default function Home() {
   };
 
   const handleRegenerateBackView = async () => {
-    if (!productImageUri) return;
+    if (Object.keys(productImageUris).length === 0) return;
     setGenerating((prev) => ({ ...prev, backView: true }));
     try {
-      const data = form.getValues();
-      const flowInput = { ...data, productImage: productImageUri };
-      const result = await generateBackView(flowInput);
+      const result = await generateBackView(getFlowInputForRegen());
       setResults((prev) => (prev ? { ...prev, ...result } : null));
        toast({ title: "Back View Regenerated", description: "The back view image has been updated." });
     } catch (e) {
@@ -138,13 +188,26 @@ export default function Home() {
     }
   };
 
+  const handleRegenerateTextureView = async () => {
+    if (!productImageUris.fabric) return;
+    setGenerating((prev) => ({ ...prev, textureView: true }));
+    try {
+      const result = await generateTextureView(getFlowInputForRegen());
+      setResults((prev) => (prev ? { ...prev, ...result } : null));
+      toast({ title: "Texture View Regenerated", description: "The texture image has been updated." });
+    } catch (e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: 'Regeneration Failed', description: 'Could not regenerate the texture view image.' });
+    } finally {
+      setGenerating((prev) => ({ ...prev, textureView: false }));
+    }
+  };
+
   const handleRegenerateFlatlay = async () => {
-    if (!productImageUri) return;
+    if (Object.keys(productImageUris).length === 0) return;
     setGenerating((prev) => ({ ...prev, flatlay: true }));
     try {
-      const data = form.getValues();
-      const flowInput = { ...data, productImage: productImageUri };
-      const flatlay = await generateHdFlatlay(flowInput);
+      const flatlay = await generateHdFlatlay(getFlowInputForRegen());
       setResults((prev) => prev ? { ...prev, hdFlatlayImage: flatlay.hdFlatlayImage } : null);
       toast({ title: "HD Flat Lay / Top View Regenerated", description: "The image has been updated." });
     } catch (e) {
@@ -179,6 +242,7 @@ export default function Home() {
               onRegenerateFrontView={handleRegenerateFrontView}
               onRegenerateSideView={handleRegenerateSideView}
               onRegenerateBackView={handleRegenerateBackView}
+              onRegenerateTextureView={handleRegenerateTextureView}
               onRegenerateFlatlay={handleRegenerateFlatlay}
             />
           </div>

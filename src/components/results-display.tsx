@@ -15,11 +15,13 @@ interface ResultsDisplayProps {
     frontView: boolean; 
     sideView: boolean;
     backView: boolean;
+    textureView: boolean;
     flatlay: boolean; 
   };
   onRegenerateFrontView: () => void;
   onRegenerateSideView: () => void;
   onRegenerateBackView: () => void;
+  onRegenerateTextureView: () => void;
   onRegenerateFlatlay: () => void;
 }
 
@@ -29,6 +31,7 @@ export function ResultsDisplay({
   onRegenerateFrontView,
   onRegenerateSideView,
   onRegenerateBackView,
+  onRegenerateTextureView,
   onRegenerateFlatlay,
 }: ResultsDisplayProps) {
   
@@ -36,7 +39,7 @@ export function ResultsDisplay({
     if (!results) return;
 
     const zip = new JSZip();
-    const { productTitle, productDescription, frontView, sideView, backView, hdFlatlayImage, productCategory } = results;
+    const { productTitle, productDescription, frontView, sideView, backView, textureView, hdFlatlayImage, productCategory } = results;
     
     const shortTitle = productTitle
       .replace(/Mitty\s/i, '')
@@ -50,11 +53,19 @@ export function ResultsDisplay({
     };
 
     const isShoes = productCategory === 'Shoes';
+    const isTrousers = productCategory === 'Trousers';
 
     addImageToZip(frontView, `${shortTitle} Front.png`);
-    addImageToZip(sideView, `${shortTitle} Side.png`);
     addImageToZip(backView, `${shortTitle} Back.png`);
-    addImageToZip(hdFlatlayImage, `${shortTitle} ${isShoes ? 'Top' : 'Flat Lay'}.png`);
+
+    if (isTrousers && textureView) {
+      addImageToZip(textureView, `${shortTitle} Texture.png`);
+      addImageToZip(hdFlatlayImage, `${shortTitle} Flat Lay.png`);
+    } else if (sideView) {
+      addImageToZip(sideView, `${shortTitle} Side.png`);
+      addImageToZip(hdFlatlayImage, `${shortTitle} ${isShoes ? 'Top' : 'Flat Lay'}.png`);
+    }
+
 
     const txtContent = `Product Title: ${productTitle}\n\nProduct Description:\n${productDescription}`;
     zip.file('Product_Info.txt', txtContent);
@@ -86,8 +97,9 @@ export function ResultsDisplay({
     );
   }
 
-  const { productTitle, productDescription, frontView, sideView, backView, hdFlatlayImage, productCategory } = results;
+  const { productTitle, productDescription, frontView, sideView, backView, textureView, hdFlatlayImage, productCategory } = results;
   const isShoes = productCategory === 'Shoes';
+  const isTrousers = productCategory === 'Trousers';
 
   return (
     <div className="p-6 bg-background h-full overflow-y-auto">
@@ -116,13 +128,25 @@ export function ResultsDisplay({
             onRegenerate={onRegenerateFrontView}
             fileName={`${productTitle} Front.png`}
           />
-          <ImageCard
-            title="Side View"
-            imageSrc={sideView}
-            isLoading={loadingState.sideView}
-            onRegenerate={onRegenerateSideView}
-            fileName={`${productTitle} Side.png`}
-          />
+          
+          {isTrousers && textureView ? (
+            <ImageCard
+              title="Material Texture"
+              imageSrc={textureView}
+              isLoading={loadingState.textureView}
+              onRegenerate={onRegenerateTextureView}
+              fileName={`${productTitle} Texture.png`}
+            />
+          ) : (
+            sideView && <ImageCard
+              title="Side View"
+              imageSrc={sideView}
+              isLoading={loadingState.sideView}
+              onRegenerate={onRegenerateSideView}
+              fileName={`${productTitle} Side.png`}
+            />
+          )}
+
           <ImageCard
             title="Back View"
             imageSrc={backView}
@@ -130,12 +154,13 @@ export function ResultsDisplay({
             onRegenerate={onRegenerateBackView}
             fileName={`${productTitle} Back.png`}
           />
+          
           <ImageCard
-            title={isShoes ? "Top View" : "HD Flat Lay"}
+            title={isTrousers ? "Flat Lay" : (isShoes ? "Top View" : "HD Flat Lay")}
             imageSrc={hdFlatlayImage}
             isLoading={loadingState.flatlay}
             onRegenerate={onRegenerateFlatlay}
-            fileName={`${productTitle} ${isShoes ? 'Top' : 'Flat Lay'}.png`}
+            fileName={`${productTitle} ${isTrousers ? 'Flat Lay' : (isShoes ? 'Top' : 'Flat Lay')}.png`}
           />
         </div>
       </div>

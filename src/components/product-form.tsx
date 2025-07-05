@@ -68,6 +68,42 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                 )}
               />
             )}
+             {productCategory === 'Trousers' && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="fitType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Fit Type</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Slim, Regular, Skinny" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="materialStretch"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Material Stretch</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Is the material stretchable?" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Yes">Yes</SelectItem>
+                          <SelectItem value="No">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
             <FormField
               control={form.control}
               name="gender"
@@ -94,7 +130,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                 <FormItem>
                   <FormLabel>Fabric Type</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Linen, Cotton" {...field} />
+                    <Input placeholder="e.g., Linen, Cotton, Lycra" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -126,16 +162,53 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="productImage"
-              render={() => (
-                <FormItem>
-                  <FormLabel>Product Image</FormLabel>
-                  <FileUpload form={form} name="productImage" />
-                </FormItem>
-              )}
-            />
+            {(productCategory === 'Shirt' || productCategory === 'Shoes' || productCategory === 'Jeans') && (
+              <FormField
+                control={form.control}
+                name="productImage"
+                render={() => (
+                  <FormItem>
+                    <FormLabel>Product Image</FormLabel>
+                    <FileUpload form={form} name="productImage" />
+                  </FormItem>
+                )}
+              />
+            )}
+             {productCategory === 'Trousers' && (
+              <div className="space-y-4 rounded-lg border p-4">
+                 <h3 className="text-sm font-medium text-foreground">Trouser Images</h3>
+                <FormField
+                  control={form.control}
+                  name="productImageFront"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel>Front View Image</FormLabel>
+                      <FileUpload form={form} name="productImageFront" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="productImageFabric"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel>Fabric Close-up Image</FormLabel>
+                      <FileUpload form={form} name="productImageFabric" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="productImageBack"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel>Back View Image</FormLabel>
+                      <FileUpload form={form} name="productImageBack" />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
           </div>
         </ScrollArea>
         <div className="p-6 border-t bg-background sticky bottom-0">

@@ -32,9 +32,19 @@ const generateHdFlatlayFlow = ai.defineFlow(
     outputSchema: GenerateHdFlatlayOutputSchema,
   },
   async input => {
-    let promptText;
+    let promptText = '';
+    let promptMedia: any[] = [];
 
-    if (input.productCategory === 'Shoes') {
+    if (input.productCategory === 'Trousers') {
+        promptText = `Generate a clean, high-resolution flat lay image of the ${input.color} ${input.materialStretch === 'Yes' ? 'lycra stretch' : ''} formal trousers. Show them neatly folded with front pockets and waistband visible.
+
+Keep the MITTY tag or label visible and untouched. Background should be white or studio beige. Lighting should clearly reveal the fabric texture, color tone, and structure of the trousers.`;
+        promptMedia = [
+            {media: {url: input.productImageFront!}},
+            {media: {url: input.productImageFabric!}},
+            {media: {url: input.productImageBack!}},
+        ];
+    } else if (input.productCategory === 'Shoes') {
         const material = input.fabricType;
         const color = input.color || 'specified';
         const forGender = input.gender === 'Male' ? "men's" : "women's";
@@ -43,20 +53,19 @@ const generateHdFlatlayFlow = ai.defineFlow(
 Do not add any brand names or logos.
 
 Maintain true-to-life stitching, texture, and lace details. No modifications to the shoe shape or style. Use clean lighting and neutral background for a professional ecommerce feel. Match the uploaded image closely.`
+        promptMedia = [{media: {url: input.productImage!}}];
     } else {
         promptText = `Enhance the uploaded shirt image into a clean, high-resolution flat lay. Retain the exact branding (MITTY logo), button placement, and color tone.
 
 Improve lighting, remove background shadows, and increase sharpness while preserving fabric texture and print accuracy. Do not alter the shirt's layout, style, or logo.
 
 The result should look studio-shot and realistic — suitable for ecommerce product listing. Keep proportions natural and logo untouched.`
+        promptMedia = [{media: {url: input.productImage!}}];
     }
     
     const {media} = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
-      prompt: [
-        {media: {url: input.productImage}},
-        { text: promptText },
-      ],
+      prompt: [ ...promptMedia, { text: promptText } ],
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },

@@ -29,14 +29,25 @@ const generateFrontViewFlow = ai.defineFlow(
   },
   async (input) => {
     let promptText = '';
+    let promptMedia: any[] = [];
 
-    if (input.productCategory === 'Shoes') {
+    if (input.productCategory === 'Trousers') {
+        promptText = `Generate a realistic front view of a male model wearing ${input.fitType} formal trousers made from ${input.fabricType}. The trousers are ${input.color || 'specified'}, feature a ${input.materialStretch === 'Yes' ? 'stretch lycra' : ''} texture, and include front pockets and belt loops as seen in the uploaded image.
+
+The model stands straight with arms relaxed, wearing a tucked-in white or black formal shirt and black formal shoes. Background should be light beige and lighting must be clean, showing the natural fall and stretch of the trousers.`;
+        promptMedia = [
+            {media: {url: input.productImageFront!}},
+            {media: {url: input.productImageFabric!}},
+            {media: {url: input.productImageBack!}},
+        ];
+    } else if (input.productCategory === 'Shoes') {
         const material = input.fabricType;
         const color = input.color || 'specified';
         const forGender = input.gender === 'Male' ? "men's" : "women's";
         promptText = `Generate a photorealistic image of a single ${forGender} formal lace-up shoe in ${material} with a ${color} finish, facing forward. This image should show the shoe standing upright, front-facing, with clear laces and toe structure visible.
 
 Use a light beige or neutral studio background. The image should be realistic with clean shadows, no reflections, and suitable for ecommerce use. The shoe should match the style, texture, and stitching of the uploaded product image — no AI artifacts or distortions.`;
+        promptMedia = [{media: {url: input.productImage!}}];
     } else {
       const sleeveType = input.productCategory === 'Shirt' ? input.sleeveType : '';
       const productDescription = `${input.fabricType} ${sleeveType} ${input.productCategory.toLowerCase()}`.trim();
@@ -51,11 +62,12 @@ The model should have a neutral expression, facing forward, with both arms strai
 The lighting should be clean and soft, like a professional ecommerce photoshoot. The ${input.productCategory.toLowerCase()} must match the uploaded product exactly — including button color, collar style, and print placement.
 
 Background should be solid beige or light grey. The model’s face must remain the same across all other views.`;
+      promptMedia = [{media: {url: input.productImage!}}];
     }
 
     const {media} = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
-      prompt: [{media: {url: input.productImage}}, {text: promptText}],
+      prompt: [...promptMedia, {text: promptText}],
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },

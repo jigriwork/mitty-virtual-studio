@@ -29,14 +29,25 @@ const generateBackViewFlow = ai.defineFlow(
   },
   async (input) => {
     let promptText = '';
+    let promptMedia: any[] = [];
 
-    if (input.productCategory === 'Shoes') {
+    if (input.productCategory === 'Trousers') {
+        promptText = `Generate a realistic back view of the same male model wearing ${input.color} ${input.fitType} ${input.materialStretch === 'Yes' ? 'lycra stretch' : ''} formal trousers. The model stands straight, facing away, showing the trouser’s back pocket details, waistband, and stitching.
+
+Fabric must appear slightly stretchable, matching the uploaded product. Shirt is tucked in. Keep same background and lighting for consistency.`;
+         promptMedia = [
+            {media: {url: input.productImageFront!}},
+            {media: {url: input.productImageFabric!}},
+            {media: {url: input.productImageBack!}},
+        ];
+    } else if (input.productCategory === 'Shoes') {
       const material = input.fabricType;
       const color = input.color || 'specified';
       const forGender = input.gender === 'Male' ? "men's" : "women's";
       promptText = `Generate a photorealistic back view of a single ${forGender} formal shoe in ${color} and ${material}, showing the heel side. The image should focus on the heel shape, stitching, and upper collar detail.
 
 Use a clean studio background (light beige). No AI distortions. Shoe must look premium, formal, and should match the uploaded image’s design perfectly. Ideal for ecommerce product display.`;
+      promptMedia = [{media: {url: input.productImage!}}];
     } else {
       const sleeveType = input.productCategory === 'Shirt' ? input.sleeveType : '';
       const productDescription = `${input.fabricType} ${sleeveType} ${input.productCategory.toLowerCase()}`.trim();
@@ -49,11 +60,12 @@ Use a clean studio background (light beige). No AI distortions. Shoe must look p
 The model should face away from the camera, arms naturally at the side. Shirt should fit cleanly with no wrinkles or folds. Sleeves must be worn straight — not rolled or pushed up.
 
 Background should remain the same as front and side views (solid beige). Shirt pattern should continue realistically on the back, matching style and fabric shown in the uploaded image. Model must be identical to other views.`;
+      promptMedia = [{media: {url: input.productImage!}}];
     }
 
     const {media} = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
-      prompt: [{media: {url: input.productImage}}, {text: promptText}],
+      prompt: [...promptMedia, {text: promptText}],
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },

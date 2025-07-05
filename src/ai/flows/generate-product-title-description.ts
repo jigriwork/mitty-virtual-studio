@@ -1,4 +1,3 @@
-// src/ai/flows/generate-product-title-description.ts
 'use server';
 
 /**
@@ -11,21 +10,8 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { GenerateProductViewInputSchema, type GenerateProductViewInput } from './types';
 
-const GenerateProductTitleDescriptionInputSchema = z.object({
-  productCategory: z.enum(['Shirt', 'Trousers', 'Jeans', 'Shoes']).describe('The category of the product.'),
-  sleeveType: z.enum(['Full Sleeve', 'Half Sleeve']).optional().describe('The sleeve type of the shirt, only applicable for shirts.'),
-  gender: z.enum(['Male', 'Female']).describe('The gender for which the product is intended.'),
-  fabricType: z.string().describe('The type of fabric used in the product.'),
-  color: z.string().optional().describe('The color of the product.'),
-  pattern: z.string().optional().describe('The pattern of the product (e.g., Floral, Stripes, Solid).'),
-  productImage: z
-    .string()
-    .describe(
-      "A photo of the product, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
-    ),
-});
-export type GenerateProductTitleDescriptionInput = z.infer<typeof GenerateProductTitleDescriptionInputSchema>;
 
 const GenerateProductTitleDescriptionOutputSchema = z.object({
   productTitle: z.string().describe('The generated product title, starting with \"Mitty\".'),
@@ -34,14 +20,14 @@ const GenerateProductTitleDescriptionOutputSchema = z.object({
 export type GenerateProductTitleDescriptionOutput = z.infer<typeof GenerateProductTitleDescriptionOutputSchema>;
 
 export async function generateProductTitleDescription(
-  input: GenerateProductTitleDescriptionInput
+  input: GenerateProductViewInput
 ): Promise<GenerateProductTitleDescriptionOutput> {
   return generateProductTitleDescriptionFlow(input);
 }
 
 const prompt = ai.definePrompt({
   name: 'generateProductTitleDescriptionPrompt',
-  input: {schema: GenerateProductTitleDescriptionInputSchema},
+  input: {schema: GenerateProductViewInputSchema},
   output: {schema: GenerateProductTitleDescriptionOutputSchema},
   prompt: `You are an expert product description writer for the fashion brand MITTY.
 
@@ -49,16 +35,19 @@ const prompt = ai.definePrompt({
 
   The product title MUST always start with \"Mitty\" and should include the color/pattern, sleeve/type, and gender. 
   Example: \"Mitty Beige Rose Floral Print Full Sleeve Shirt for Men\"
+  Example: "Mitty Steel Blue Slim Fit Lycra Stretch Formal Trousers for Men"
 
   The product description should include details about the color, fabric, print/pattern type, button/collar details, fit, and ideal occasions.
 
   Product Category: {{{productCategory}}}
   Sleeve Type: {{#if sleeveType}}{{{sleeveType}}}{{else}}N/A{{/if}}
+  Fit Type: {{#if fitType}}{{{fitType}}}{{else}}N/A{{/if}}
+  Material Stretch: {{#if materialStretch}}{{{materialStretch}}}{{else}}N/A{{/if}}
   Gender: {{{gender}}}
   Fabric Type: {{{fabricType}}}
   Color: {{#if color}}{{{color}}}{{else}}N/A{{/if}}
   Pattern: {{#if pattern}}{{{pattern}}}{{else}}N/A{{/if}}
-  Product Image: {{media url=productImage}}
+  Product Image(s): {{#if productImage}}{{media url=productImage}}{{/if}}{{#if productImageFront}}{{media url=productImageFront}}{{/if}}{{#if productImageFabric}}{{media url=productImageFabric}}{{/if}}{{#if productImageBack}}{{media url=productImageBack}}{{/if}}
 
   Now generate the product title and product description:
   `,
@@ -67,7 +56,7 @@ const prompt = ai.definePrompt({
 const generateProductTitleDescriptionFlow = ai.defineFlow(
   {
     name: 'generateProductTitleDescriptionFlow',
-    inputSchema: GenerateProductTitleDescriptionInputSchema,
+    inputSchema: GenerateProductViewInputSchema,
     outputSchema: GenerateProductTitleDescriptionOutputSchema,
   },
   async input => {
