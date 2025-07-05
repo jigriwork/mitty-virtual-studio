@@ -60,6 +60,9 @@ export const productFormSchema = z.object({
         if (!data.materialStretch) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Please specify if material has stretch.', path: ['materialStretch'] });
         }
+        if (!data.color || data.color.trim() === '') {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Color is required for trousers.', path: ['color'] });
+        }
         validateFile(data.productImageFront, ['productImageFront']);
         validateFile(data.productImageFabric, ['productImageFabric']);
         validateFile(data.productImageBack, ['productImageBack']);
