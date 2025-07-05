@@ -27,9 +27,7 @@ const generateTextureViewFlow = ai.defineFlow(
     outputSchema: GenerateTextureViewOutputSchema,
   },
   async (input) => {
-    const promptText = `Generate a photorealistic close-up of the ${input.fabricType} ${input.color} formal trouser’s texture. The fabric should appear ${input.materialStretch === 'Yes' ? 'stretchable' : ''} and soft, clearly showing the weave and grain pattern.
-
-Lighting should highlight the surface detail accurately. Optional brand tag (like MITTY) can be shown if present. This image is to display the feel and finish of the trousers.`;
+    const promptText = `Generate a high-resolution close-up macro shot of the trouser’s thigh or upper hip area, showcasing the texture of the ${input.materialStretch === 'Yes' ? 'stretchable' : 'non-stretchable'} ${input.fabricType} in ${input.color}. Match the weave, grain, and finish from the uploaded texture reference. No alterations or smoothing. Use soft light and clean background to keep the texture natural and realistic. If the brand tag is visible in the original, preserve it.`;
     
     const {media} = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',

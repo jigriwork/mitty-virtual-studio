@@ -32,9 +32,7 @@ const generateBackViewFlow = ai.defineFlow(
     let promptMedia: any[] = [];
 
     if (input.productCategory === 'Trousers') {
-        promptText = `Generate a realistic back view of the same male model wearing ${input.color} ${input.fitType} ${input.materialStretch === 'Yes' ? 'lycra stretch' : ''} formal trousers. The model stands straight, facing away, showing the trouser’s back pocket details, waistband, and stitching.
-
-Fabric must appear slightly stretchable, matching the uploaded product. Shirt is tucked in. Keep same background and lighting for consistency.`;
+        promptText = `Generate a back view of the same model, standing straight with arms by the side, wearing the same ${input.color} ${input.fitType} ${input.materialStretch === 'Yes' ? 'stretch' : ''} trousers. Clearly show back welt pockets, seams, and waistband as shown in the uploaded product image. Use the same lighting and background as the front view. Fabric must still show ${input.materialStretch === 'Yes' ? 'slight stretch' : 'a standard fall'} and a clean finish. No model pose changes.`;
          promptMedia = [
             {media: {url: input.productImageFront!}},
             {media: {url: input.productImageFabric!}},

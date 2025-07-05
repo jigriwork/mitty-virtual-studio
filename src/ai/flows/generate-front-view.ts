@@ -32,9 +32,7 @@ const generateFrontViewFlow = ai.defineFlow(
     let promptMedia: any[] = [];
 
     if (input.productCategory === 'Trousers') {
-        promptText = `Generate a realistic front view of a male model wearing ${input.fitType} formal trousers made from ${input.fabricType}. The trousers are ${input.color || 'specified'}, feature a ${input.materialStretch === 'Yes' ? 'stretch lycra' : ''} texture, and include front pockets and belt loops as seen in the uploaded image.
-
-The model stands straight with arms relaxed, wearing a tucked-in white or black formal shirt and black formal shoes. Background should be light beige and lighting must be clean, showing the natural fall and stretch of the trousers.`;
+        promptText = `Generate a realistic full-body image of a male model standing straight in a studio. He is wearing ${input.fitType} formal trousers made of ${input.fabricType} in ${input.color}. The model has a white or black tucked-in formal shirt and black dress shoes. Both legs should be straight, showing perfect trouser fall and crease. Sleeves must not be rolled. The waistband, belt loops, pockets, and fabric must exactly match the uploaded image. Keep facial expression neutral and posture professional. Use a soft beige background. Fabric must clearly reflect ${input.materialStretch === 'Yes' ? 'a LYCRA stretch type, slightly fitted but clean' : 'a non-stretch fabric'}.`;
         promptMedia = [
             {media: {url: input.productImageFront!}},
             {media: {url: input.productImageFabric!}},
