@@ -78,4 +78,6 @@ export type GenerationResults = {
   productTitle: string;
   productDescription: string;
   productCategory: 'Shirt' | 'Trousers' | 'Jeans' | 'Shoes';
+  color?: string;
+  fitType?: string;
 };

@@ -36,7 +36,7 @@ const generateHdFlatlayFlow = ai.defineFlow(
     let promptMedia: any[] = [];
 
     if (input.productCategory === 'Trousers') {
-        promptText = `Generate a clean, high-resolution flat lay image of the ${input.color} ${input.materialStretch === 'Yes' ? 'lycra stretch' : ''} formal trousers based on the uploaded product photo. Show them fully spread and neatly arranged, with waistband, belt loops, and front pocket lines visible. Ensure the MITTY tag/logo remains untouched and readable. Use white or beige background with soft shadows and sharp focus. This image will be used directly for ecommerce listing.`;
+        promptText = `Generate a clean, high-resolution flat lay image of the ${input.color} formal trousers based on the uploaded product photo. Show them fully spread and neatly arranged, with waistband, belt loops, and front pocket lines visible. Ensure the MITTY tag/logo remains untouched and readable. Use white or beige background with soft shadows and sharp focus. This image will be used directly for ecommerce listing.`;
         promptMedia = [
             {media: {url: input.productImageFront!}},
             {media: {url: input.productImageFabric!}},

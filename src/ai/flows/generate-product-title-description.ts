@@ -22,6 +22,20 @@ export type GenerateProductTitleDescriptionOutput = z.infer<typeof GenerateProdu
 export async function generateProductTitleDescription(
   input: GenerateProductViewInput
 ): Promise<GenerateProductTitleDescriptionOutput> {
+   if (input.productCategory === 'Trousers') {
+    const color = input.color || '';
+    const fitType = input.fitType || '';
+    const fabricType = input.fabricType || '';
+    const materialStretchText = input.materialStretch === 'Yes' 
+      ? `subtle stretch for maximum comfort` 
+      : `a classic structure for a sharp look`;
+
+    const productTitle = `Mitty ${color} ${fitType} ${fabricType} Formal Trousers for Men`.trim().replace(/\s+/g, ' ');
+    
+    const productDescription = `Elevate your formal wardrobe with these ${color} formal trousers from MITTY. Crafted from premium ${fabricType} fabric, these trousers offer a refined ${fitType} and ${materialStretchText}. The mid-rise design with crisp pleats and neat welt pockets makes it an ideal choice for office wear, events, or festive occasions. Pair it with a tucked-in shirt and formal shoes for a sharp, confident look.`.trim().replace(/\s+/g, ' ');
+
+    return { productTitle, productDescription };
+  }
   return generateProductTitleDescriptionFlow(input);
 }
 

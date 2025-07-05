@@ -39,33 +39,42 @@ export function ResultsDisplay({
     if (!results) return;
 
     const zip = new JSZip();
-    const { productTitle, productDescription, frontView, sideView, backView, textureView, hdFlatlayImage, productCategory } = results;
+    const { productTitle, productDescription, frontView, sideView, backView, textureView, hdFlatlayImage, productCategory, color, fitType } = results;
     
-    const shortTitle = productTitle
-      .replace(/Mitty\s/i, '')
-      .replace(/\sfor\s(Men|Women|Unisex)$/i, '')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const isTrousers = productCategory === 'Trousers';
+    const isShoes = productCategory === 'Shoes';
+    
+    let zipFileName = `${productTitle}.zip`;
+    let baseImageName = '';
+    
+    if (isTrousers) {
+      baseImageName = `Mitty ${color} ${fitType} Trousers`;
+      zipFileName = `${baseImageName}.zip`;
+    } else {
+      baseImageName = productTitle
+        .replace(/Mitty\s/i, '')
+        .replace(/\sfor\s(Men|Women|Unisex)$/i, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
 
     const addImageToZip = (dataUri: string, filename: string) => {
       const base64 = dataUri.split(',')[1];
       zip.file(filename, base64, { base64: true });
     };
 
-    const isShoes = productCategory === 'Shoes';
-    const isTrousers = productCategory === 'Trousers';
-
-    addImageToZip(frontView, `${shortTitle} Front.png`);
-    addImageToZip(backView, `${shortTitle} Back.png`);
+    addImageToZip(frontView, `${baseImageName} - Front.png`);
+    addImageToZip(backView, `${baseImageName} - Back.png`);
 
     if (isTrousers && textureView) {
-      addImageToZip(textureView, `${shortTitle} Texture.png`);
-      addImageToZip(hdFlatlayImage, `${shortTitle} Flat Lay.png`);
+      addImageToZip(textureView, `${baseImageName} - Texture.png`);
+      addImageToZip(hdFlatlayImage, `${baseImageName} - Flat Lay.png`);
     } else if (sideView) {
-      addImageToZip(sideView, `${shortTitle} Side.png`);
-      addImageToZip(hdFlatlayImage, `${shortTitle} ${isShoes ? 'Top' : 'Flat Lay'}.png`);
+      addImageToZip(sideView, `${baseImageName} - Side.png`);
+      addImageToZip(hdFlatlayImage, `${baseImageName} - ${isShoes ? 'Top' : 'Flat Lay'}.png`);
+    } else if (!isTrousers && !sideView) { // For shirts
+        addImageToZip(hdFlatlayImage, `${baseImageName} - Flat Lay.png`);
     }
-
 
     const txtContent = `Product Title: ${productTitle}\n\nProduct Description:\n${productDescription}`;
     zip.file('Product_Info.txt', txtContent);
@@ -73,7 +82,7 @@ export function ResultsDisplay({
     const zipBlob = await zip.generateAsync({ type: 'blob' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(zipBlob);
-    link.download = `${productTitle}.zip`;
+    link.download = zipFileName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -97,9 +106,20 @@ export function ResultsDisplay({
     );
   }
 
-  const { productTitle, productDescription, frontView, sideView, backView, textureView, hdFlatlayImage, productCategory } = results;
+  const { productTitle, productDescription, frontView, sideView, backView, textureView, hdFlatlayImage, productCategory, color, fitType } = results;
   const isShoes = productCategory === 'Shoes';
   const isTrousers = productCategory === 'Trousers';
+  
+  let baseImageName = '';
+    if (isTrousers) {
+      baseImageName = `Mitty ${color} ${fitType} Trousers`;
+    } else {
+      baseImageName = productTitle
+        .replace(/Mitty\s/i, '')
+        .replace(/\sfor\s(Men|Women|Unisex)$/i, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
 
   return (
     <div className="p-6 bg-background h-full overflow-y-auto">
@@ -126,7 +146,7 @@ export function ResultsDisplay({
             imageSrc={frontView}
             isLoading={loadingState.frontView}
             onRegenerate={onRegenerateFrontView}
-            fileName={`${productTitle} Front.png`}
+            fileName={`${baseImageName} - Front.png`}
           />
           
           {isTrousers && textureView ? (
@@ -135,7 +155,7 @@ export function ResultsDisplay({
               imageSrc={textureView}
               isLoading={loadingState.textureView}
               onRegenerate={onRegenerateTextureView}
-              fileName={`${productTitle} Texture.png`}
+              fileName={`${baseImageName} - Texture.png`}
             />
           ) : (
             sideView && <ImageCard
@@ -143,7 +163,7 @@ export function ResultsDisplay({
               imageSrc={sideView}
               isLoading={loadingState.sideView}
               onRegenerate={onRegenerateSideView}
-              fileName={`${productTitle} Side.png`}
+              fileName={`${baseImageName} - Side.png`}
             />
           )}
 
@@ -152,7 +172,7 @@ export function ResultsDisplay({
             imageSrc={backView}
             isLoading={loadingState.backView}
             onRegenerate={onRegenerateBackView}
-            fileName={`${productTitle} Back.png`}
+            fileName={`${baseImageName} - Back.png`}
           />
           
           <ImageCard
@@ -160,7 +180,7 @@ export function ResultsDisplay({
             imageSrc={hdFlatlayImage}
             isLoading={loadingState.flatlay}
             onRegenerate={onRegenerateFlatlay}
-            fileName={`${productTitle} ${isTrousers ? 'Flat Lay' : (isShoes ? 'Top' : 'Flat Lay')}.png`}
+            fileName={`${baseImageName} - ${isTrousers ? 'Flat Lay' : (isShoes ? 'Top' : 'Flat Lay')}.png`}
           />
         </div>
       </div>

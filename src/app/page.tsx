@@ -92,6 +92,8 @@ export default function Home() {
           productTitle: textResult.productTitle,
           productDescription: textResult.productDescription,
           productCategory: data.productCategory,
+          color: data.color,
+          fitType: data.fitType,
         });
 
       } else {
