@@ -15,7 +15,7 @@ import { GenerateProductViewInputSchema, type GenerateProductViewInput } from '.
 const GenerateProductTitleDescriptionOutputSchema = z.object({
   productTitle: z.string().describe('The generated product title, starting with "Mitty".'),
   productDescription: z.string().describe('The generated product description, including details about color, fabric, pattern, fit, and ideal occasions.'),
-  detectedColor: z.string().describe('The main color of the product detected from the uploaded image(s). For example: "Navy Blue", "Olive Green", "Beige".'),
+  detectedColor: z.string().describe('The main color of the product. This MUST be the user-provided color if available, otherwise it is detected from the uploaded image(s). For example: "Navy Blue", "Olive Green", "Beige", "Teal".'),
 });
 export type GenerateProductTitleDescriptionOutput = z.infer<typeof GenerateProductTitleDescriptionOutputSchema>;
 
@@ -32,9 +32,9 @@ const prompt = ai.definePrompt({
   prompt: `You are an expert product description writer for the fashion brand MITTY.
 
   Based on the following product details and image(s), you will:
-  1.  Accurately detect the primary color of the product from the image(s) and return it in the 'detectedColor' field.
-  2.  Generate a product title.
-  3.  Generate a product description.
+  1.  Determine the final color. **If a 'User-provided Color' exists and is not 'N/A', you MUST use that exact value for the color.** Otherwise, you must accurately detect the primary color from the product image(s). Return this final color in the 'detectedColor' field. Be very specific with color names (e.g., "Teal", "Olive Green", "Navy Blue", not just "Blue" or "Green").
+  2.  Generate a product title using the final color.
+  3.  Generate a product description using the final color.
 
   The product title MUST always start with "Mitty".
 
@@ -55,15 +55,15 @@ const prompt = ai.definePrompt({
   Gender: {{{gender}}}
   Fabric Type: {{{fabricType}}}
   Pattern: {{#if pattern}}{{{pattern}}}{{else}}N/A{{/if}}
-  User-provided Color (use for reference if available, but prioritize image detection): {{#if color}}{{{color}}}{{else}}N/A{{/if}}
+  User-provided Color: {{#if color}}{{{color}}}{{else}}N/A{{/if}}
   
   **Product Image(s):**
   {{#if productImage}}{{media url=productImage}}{{/if}}
-  {{#if productImageFront}}{{media url=productImageFront}}{{/if}}
+  {{#if productImageFront}}{{media url=producImageFront}}{{/if}}
   {{#if productImageFabric}}{{media url=productImageFabric}}{{/if}}
   {{#if productImageBack}}{{media url=productImageBack}}{{/if}}
 
-  Now, detect the color and generate the title and description based on these instructions.
+  Now, determine the final color and generate the title and description based on these instructions.
   `,
 });
 
