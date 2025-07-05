@@ -61,7 +61,7 @@ export default function Home() {
     
     try {
       const uris: {[key: string]: string} = {};
-      const flowInput: GenerateProductViewInput = { ...data, fitType: data.fitType || undefined };
+      const baseFlowInput: GenerateProductViewInput = { ...data, fitType: data.fitType || undefined };
 
       if (data.productCategory === 'Trousers') {
         const [frontUri, fabricUri, backUri] = await Promise.all([
@@ -72,16 +72,33 @@ export default function Home() {
         uris.front = frontUri;
         uris.fabric = fabricUri;
         uris.back = backUri;
-        flowInput.productImageFront = frontUri;
-        flowInput.productImageFabric = fabricUri;
-        flowInput.productImageBack = backUri;
+        baseFlowInput.productImageFront = frontUri;
+        baseFlowInput.productImageFabric = fabricUri;
+        baseFlowInput.productImageBack = backUri;
+      } else {
+        const imageUri = await fileToDataUri(data.productImage[0]);
+        uris.main = imageUri;
+        baseFlowInput.productImage = imageUri;
+      }
+      setProductImageUris(uris);
 
-        const [frontResult, backResult, textureResult, flatlayResult, textResult] = await Promise.all([
-          generateFrontView(flowInput),
-          generateBackView(flowInput),
-          generateTextureView(flowInput),
-          generateHdFlatlay(flowInput),
-          generateProductTitleDescription(flowInput),
+      // First, generate text and detect color
+      const textResult = await generateProductTitleDescription(baseFlowInput);
+      const detectedColor = textResult.detectedColor;
+
+      // Now prepare the input for image generation using the detected color
+      const imageFlowInput: GenerateProductViewInput = {
+        ...baseFlowInput,
+        color: detectedColor,
+      };
+
+
+      if (data.productCategory === 'Trousers') {
+        const [frontResult, backResult, textureResult, flatlayResult] = await Promise.all([
+          generateFrontView(imageFlowInput),
+          generateBackView(imageFlowInput),
+          generateTextureView(imageFlowInput),
+          generateHdFlatlay(imageFlowInput),
         ]);
         
         setResults({
@@ -92,21 +109,16 @@ export default function Home() {
           productTitle: textResult.productTitle,
           productDescription: textResult.productDescription,
           productCategory: data.productCategory,
-          color: data.color,
+          color: detectedColor,
           fitType: data.fitType,
         });
 
       } else {
-        const imageUri = await fileToDataUri(data.productImage[0]);
-        uris.main = imageUri;
-        flowInput.productImage = imageUri;
-        
-        const [frontResult, sideResult, backResult, flatlayResult, textResult] = await Promise.all([
-          generateFrontView(flowInput),
-          generateSideView(flowInput),
-          generateBackView(flowInput),
-          generateHdFlatlay(flowInput),
-          generateProductTitleDescription(flowInput),
+        const [frontResult, sideResult, backResult, flatlayResult] = await Promise.all([
+          generateFrontView(imageFlowInput),
+          generateSideView(imageFlowInput),
+          generateBackView(imageFlowInput),
+          generateHdFlatlay(imageFlowInput),
         ]);
         
         setResults({
@@ -117,9 +129,9 @@ export default function Home() {
           productTitle: textResult.productTitle,
           productDescription: textResult.productDescription,
           productCategory: data.productCategory,
+          color: detectedColor,
         });
       }
-      setProductImageUris(uris);
 
     } catch (e) {
       console.error(e);
@@ -138,6 +150,7 @@ export default function Home() {
     return {
       ...data,
       fitType: data.fitType || undefined,
+      color: results?.color || data.color,
       productImage: productImageUris.main,
       productImageFront: productImageUris.front,
       productImageFabric: productImageUris.fabric,
