@@ -42,9 +42,7 @@ const generateFrontViewFlow = ai.defineFlow(
         const material = input.fabricType;
         const color = input.color || 'specified';
         const forGender = input.gender === 'Male' ? "men's" : "women's";
-        promptText = `Generate a photorealistic image of a single ${forGender} formal lace-up shoe in ${material} with a ${color} finish, facing forward. This image should show the shoe standing upright, front-facing, with clear laces and toe structure visible.
-
-Use a light beige or neutral studio background. The image should be realistic with clean shadows, no reflections, and suitable for ecommerce use. The shoe should match the style, texture, and stitching of the uploaded product image — no AI artifacts or distortions.`;
+        promptText = `Generate an ultra-realistic, e-commerce studio photograph of a single ${forGender} formal shoe. The shoe should be made of high-quality ${color} ${material} and must perfectly match the design, texture, and stitching from the uploaded image. The view should be straight-on, showing the front of the shoe, including the toe cap, vamp, and laces clearly. The shoe must be standing upright on a plain, solid light grey background (hex #f0f2f5) with a soft, clean shadow underneath. The lighting should be bright and even, highlighting the material's texture without harsh reflections. Ensure the image is sharp, in focus, and free of any AI artifacts or distortions.`;
         promptMedia = [{media: {url: input.productImage!}}];
     } else {
       const sleeveType = input.productCategory === 'Shirt' ? input.sleeveType : '';

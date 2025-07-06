@@ -46,11 +46,7 @@ const generateHdFlatlayFlow = ai.defineFlow(
         const material = input.fabricType;
         const color = input.color || 'specified';
         const forGender = input.gender === 'Male' ? "men's" : "women's";
-        promptText = `Generate a high-resolution top view (flat lay) image of a single ${forGender} formal lace-up shoe in ${material} and ${color}. The shoe should lie flat with laces and collar clearly visible from above.
-
-Do not add any brand names or logos.
-
-Maintain true-to-life stitching, texture, and lace details. No modifications to the shoe shape or style. Use clean lighting and neutral background for a professional ecommerce feel. Match the uploaded image closely.`
+        promptText = `Generate a high-resolution, professional e-commerce studio photograph of a PAIR of ${forGender} formal shoes, viewed from an elevated, angled top-down perspective. The shoes, made of ${color} ${material}, must perfectly match the style of the uploaded image. They should be arranged neatly side-by-side on a solid light grey background (hex #f0f2f5). This view should clearly display the shoe's opening (collar), insole, and the top-down shape of the toe box. Lighting must be soft and diffuse to eliminate harsh shadows and accurately represent the material's color and texture. The image must be exceptionally sharp and clean. Do not add any brand names or logos.`
         promptMedia = [{media: {url: input.productImage!}}];
     } else {
         promptText = `Enhance the uploaded shirt image into a clean, high-resolution flat lay. Retain the exact branding (MITTY logo), button placement, and color tone.

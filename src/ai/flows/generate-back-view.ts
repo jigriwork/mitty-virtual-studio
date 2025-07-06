@@ -42,9 +42,7 @@ const generateBackViewFlow = ai.defineFlow(
       const material = input.fabricType;
       const color = input.color || 'specified';
       const forGender = input.gender === 'Male' ? "men's" : "women's";
-      promptText = `Generate a photorealistic back view of a single ${forGender} formal shoe in ${color} and ${material}, showing the heel side. The image should focus on the heel shape, stitching, and upper collar detail.
-
-Use a clean studio background (light beige). No AI distortions. Shoe must look premium, formal, and should match the uploaded image’s design perfectly. Ideal for ecommerce product display.`;
+      promptText = `Generate an ultra-realistic, e-commerce studio photograph of a PAIR of ${forGender} formal shoes. The shoes should be made of ${color} ${material} and must perfectly match the design from the uploaded image. The shot should be from a three-quarter back angle, showing the heel counter, the side profile of one shoe, and the back of the other, similar to a standard e-commerce product listing. The shoes should be placed on a solid light grey background (hex #f0f2f5) with soft, natural shadows. The lighting must be balanced to showcase the texture and shape of the heels and quarters. The final image must be photorealistic and clean.`;
       promptMedia = [{media: {url: input.productImage!}}];
     } else {
       const sleeveType = input.productCategory === 'Shirt' ? input.sleeveType : '';

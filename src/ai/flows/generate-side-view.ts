@@ -29,14 +29,14 @@ const generateSideViewFlow = ai.defineFlow(
   },
   async (input) => {
     let promptText = '';
+    let promptMedia: any[] = [];
 
     if (input.productCategory === 'Shoes') {
       const material = input.fabricType;
       const color = input.color || 'specified';
       const forGender = input.gender === 'Male' ? "men's" : "women's";
-      promptText = `Generate a photorealistic side view (profile) of a single ${forGender} formal lace-up shoe made from ${material}, in ${color}. The shoe should be turned 90°, showing the side curve, stitching, sole, and lace structure.
-
-Lighting must be neutral and shadow clean. This image is for ecommerce listing — it should be high-resolution and match the uploaded product design and material exactly. The shoe should appear polished, studio-lit, and professional.`;
+      promptText = `Generate an ultra-realistic, e-commerce studio photograph of a single ${forGender} formal shoe, viewed from the side profile. The shoe, made of ${color} ${material}, must exactly match the style and details of the uploaded image. It should be perfectly perpendicular to the camera, showcasing the quarter, sole construction, and heel. The background must be a solid light grey (hex #f0f2f5), and the lighting should be professional and even, revealing the texture of the material. The image needs to be crisp, well-defined, and suitable for a product page.`;
+      promptMedia = [{media: {url: input.productImage!}}];
     } else {
       const sleeveType = input.productCategory === 'Shirt' ? input.sleeveType : '';
       const productDescription = `${input.fabricType} ${sleeveType} ${input.productCategory.toLowerCase()}`.trim();
@@ -49,11 +49,12 @@ Lighting must be neutral and shadow clean. This image is for ecommerce listing �
 The side profile should clearly show sleeve length and ${input.productCategory.toLowerCase()} fit. Sleeves should be worn normally — no folding or rolling. Use clean studio lighting and a soft beige background.
 
 Ensure color accuracy, fabric texture, and button/collar details match the uploaded shirt image. The model must be identical to the front view — same face, hair, and posture — to ensure consistency across the product shoot.`;
+      promptMedia = [{media: {url: input.productImage!}}];
     }
 
     const {media} = await ai.generate({
       model: 'googleai/gemini-2.0-flash-preview-image-generation',
-      prompt: [{media: {url: input.productImage}}, {text: promptText}],
+      prompt: [...promptMedia, {text: promptText}],
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },
