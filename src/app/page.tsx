@@ -71,10 +71,8 @@ export default function Home() {
     
     try {
       const uris: {[key: string]: string} = {};
-      const baseFlowInput: GenerateProductViewInput = { 
+      const baseFlowInput: Partial<GenerateProductViewInput> = { 
         ...data, 
-        fitType: data.fitType || undefined,
-        fabricType: data.fabricType || undefined
       };
 
       if (data.productCategory === 'Trousers') {
@@ -109,14 +107,14 @@ export default function Home() {
       setProductImageUris(uris);
 
       // First, generate text and detect color
-      const textResult = await generateProductTitleDescription(baseFlowInput);
+      const textResult = await generateProductTitleDescription(baseFlowInput as GenerateProductViewInput);
       const detectedColor = textResult.detectedColor;
 
       // Now prepare the input for image generation using the detected color
       const imageFlowInput: GenerateProductViewInput = {
         ...baseFlowInput,
         color: detectedColor,
-      };
+      } as GenerateProductViewInput;
 
 
       if (data.productCategory === 'Trousers') {
@@ -193,9 +191,16 @@ export default function Home() {
   const getFlowInputForRegen = (): GenerateProductViewInput => {
     const data = form.getValues();
     const flowInput: GenerateProductViewInput = {
-      ...data,
-      fitType: data.fitType || undefined,
-      fabricType: data.fabricType || undefined,
+      productCategory: data.productCategory,
+      gender: data.gender,
+      sleeveType: data.sleeveType,
+      fitType: data.fitType,
+      materialStretch: data.materialStretch,
+      fabricType: data.fabricType,
+      pattern: data.pattern,
+      fragranceFamily: data.fragranceFamily,
+      fragranceName: data.fragranceName,
+      sizeMl: data.sizeMl,
       color: results?.color || data.color,
       productImage: productImageUris.main,
       productImageFront: productImageUris.front,
