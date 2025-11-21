@@ -20,6 +20,7 @@ export const GenerateProductViewInputSchema = z.object({
   materialStretch: z.enum(['Yes', 'No']).optional().describe('Whether the trouser material is stretchable.'),
 
   // Perfume fields
+  fragranceName: z.string().optional().describe('The name of the fragrance.'),
   fragranceFamily: z.string().optional().describe('The fragrance family of the perfume.'),
   sizeMl: z.string().optional().describe('The size of the perfume in milliliters.'),
   bottleImageUri: z.string().optional().describe('A photo of the perfume bottle, as a data URI.'),

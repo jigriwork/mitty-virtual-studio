@@ -93,6 +93,19 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                 />
                 <FormField
                   control={form.control}
+                  name="fragranceName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Fragrance Name (Optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Midnight Bloom, Ocean Breeze" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="fragranceFamily"
                   render={({ field }) => (
                     <FormItem>

@@ -58,6 +58,7 @@ export default function Home() {
       sleeveType: 'Full Sleeve',
       fitType: '',
       materialStretch: 'No',
+      fragranceName: '',
       fragranceFamily: '',
       sizeMl: '',
     },

@@ -44,7 +44,7 @@ const prompt = ai.definePrompt({
       - For [Material Stretch Text], use "subtle stretch for maximum comfort" if materialStretch is 'Yes', otherwise use "a classic structure for a sharp look".
 
   **If the productCategory is 'Perfume':**
-  - The title should be in the format: "Mitty [Fragrance Name] Extrait De Parfum for [Target]" (e.g., Mitty Midnight Bloom Extrait De Parfum for Women). Invent a creative, suitable fragrance name based on the family and target audience. The Perfume Type MUST always be "Extrait De Parfum".
+  - The title must be in the format: "Mitty [Fragrance Name] Extrait De Parfum for [Target]". **If a 'User-provided Fragrance Name' is available, you MUST use it for [Fragrance Name].** Otherwise, invent a creative, suitable fragrance name based on the fragrance family and target audience. The Perfume Type MUST always be "Extrait De Parfum".
   - The description should be engaging and evoke the scent's character, mentioning the fragrance family, key notes (you can invent 2-3 plausible notes), type ("Extrait De Parfum"), and size.
 
   **For all other product categories (Shirt, Shoes, etc.):**
@@ -62,6 +62,7 @@ const prompt = ai.definePrompt({
   User-provided Color: {{#if color}}{{{color}}}{{else}}N/A{{/if}}
 
   {{#if fragranceFamily}}
+  User-provided Fragrance Name: {{#if fragranceName}}{{{fragranceName}}}{{else}}N/A{{/if}}
   Fragrance Family: {{{fragranceFamily}}}
   Perfume Type: Extrait De Parfum
   Size (ml): {{{sizeMl}}}

@@ -19,8 +19,8 @@ export const productFormSchema = z.object({
   productImageFabric: z.any().optional(),
   productImageBack: z.any().optional(),
   // Perfume fields
+  fragranceName: z.string().optional(),
   fragranceFamily: z.string().optional(),
-  perfumeType: z.string().optional(),
   sizeMl: z.string().optional(),
   bottleImageFile: z.any().optional(),
   boxFrontImageFile: z.any().optional(),
