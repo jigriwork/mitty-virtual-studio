@@ -20,7 +20,7 @@ export const productFormSchema = z.object({
   productImageBack: z.any().optional(),
   // Perfume fields
   fragranceFamily: z.string().optional(),
-  perfumeType: z.enum(['EDP', 'EDT', 'Parfum', 'Mist']).optional(),
+  perfumeType: z.string().optional(),
   sizeMl: z.string().optional(),
   bottleImageFile: z.any().optional(),
   boxFrontImageFile: z.any().optional(),
@@ -83,9 +83,6 @@ export const productFormSchema = z.object({
     } else if (data.productCategory === 'Perfume') {
         if (!data.fragranceFamily || data.fragranceFamily.trim() === '') {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Fragrance family is required.', path: ['fragranceFamily'] });
-        }
-        if (!data.perfumeType) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Perfume type is required.', path: ['perfumeType'] });
         }
         if (!data.sizeMl || data.sizeMl.trim() === '') {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Size (ml) is required.', path: ['sizeMl'] });

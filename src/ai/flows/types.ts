@@ -21,7 +21,7 @@ export const GenerateProductViewInputSchema = z.object({
 
   // Perfume fields
   fragranceFamily: z.string().optional().describe('The fragrance family of the perfume.'),
-  perfumeType: z.enum(['EDP', 'EDT', 'Parfum', 'Mist']).optional().describe('The type of perfume.'),
+  perfumeType: z.string().optional().describe('The type of perfume.'),
   sizeMl: z.string().optional().describe('The size of the perfume in milliliters.'),
   bottleImageUri: z.string().optional().describe('A photo of the perfume bottle, as a data URI.'),
   boxFrontImageUri: z.string().optional().describe('A photo of the front of the perfume box, as a data URI.'),

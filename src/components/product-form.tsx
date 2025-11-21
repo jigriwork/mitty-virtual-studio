@@ -106,27 +106,6 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                 />
                 <FormField
                   control={form.control}
-                  name="perfumeType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Perfume Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger><SelectValue placeholder="Select perfume type" /></SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="EDP">EDP</SelectItem>
-                          <SelectItem value="EDT">EDT</SelectItem>
-                          <SelectItem value="Parfum">Parfum</SelectItem>
-                          <SelectItem value="Mist">Mist</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
                   name="sizeMl"
                   render={({ field }) => (
                     <FormItem>

@@ -59,7 +59,7 @@ export default function Home() {
       fitType: '',
       materialStretch: 'No',
       fragranceFamily: '',
-      perfumeType: 'EDP',
+      perfumeType: 'Extrait De Parfum',
       sizeMl: '',
     },
   });
@@ -101,6 +101,7 @@ export default function Home() {
         baseFlowInput.bottleImageUri = bottleUri;
         baseFlowInput.boxFrontImageUri = boxFrontUri;
         baseFlowInput.boxBackImageUri = boxBackUri;
+        baseFlowInput.perfumeType = 'Extrait De Parfum';
       } else {
         const imageUri = await fileToDataUri(data.productImage[0]);
         uris.main = imageUri;
@@ -192,7 +193,7 @@ export default function Home() {
 
   const getFlowInputForRegen = (): GenerateProductViewInput => {
     const data = form.getValues();
-    return {
+    const flowInput: GenerateProductViewInput = {
       ...data,
       fitType: data.fitType || undefined,
       fabricType: data.fabricType || undefined,
@@ -205,6 +206,10 @@ export default function Home() {
       boxFrontImageUri: productImageUris.boxFront,
       boxBackImageUri: productImageUris.boxBack,
     };
+     if (data.productCategory === 'Perfume') {
+      flowInput.perfumeType = 'Extrait De Parfum';
+    }
+    return flowInput;
   }
 
   const handleRegenerateFrontView = async () => {
