@@ -66,13 +66,13 @@ export function ResultsDisplay({
     };
 
     if (isPerfume) {
-        addImageToZip(frontView, `${baseImageName} - Bottle Front.png`);
+        if(frontView) addImageToZip(frontView, `${baseImageName} - Bottle Front.png`);
         if(sideView) addImageToZip(sideView, `${baseImageName} - Box Front.png`);
-        addImageToZip(backView, `${baseImageName} - Box Back.png`);
+        if(backView) addImageToZip(backView, `${baseImageName} - Box Back.png`);
         if(heroView) addImageToZip(heroView, `${baseImageName} - Hero View.png`);
     } else {
-        addImageToZip(frontView, `${baseImageName} - Front.png`);
-        addImageToZip(backView, `${baseImageName} - Back.png`);
+        if(frontView) addImageToZip(frontView, `${baseImageName} - Front.png`);
+        if(backView) addImageToZip(backView, `${baseImageName} - Back.png`);
 
         if (isTrousers && textureView) {
             addImageToZip(textureView, `${baseImageName} - Texture.png`);
@@ -143,7 +143,7 @@ export function ResultsDisplay({
               <p className="mt-2 text-muted-foreground">{productDescription}</p>
             </CardContent>
           </Card>
-          <Button onClick={handleDownloadAll} size="lg">
+          <Button onClick={handleDownloadAll} size="lg" disabled={!productTitle}>
             <Package className="mr-2 h-5 w-5" />
             Download All (.zip)
           </Button>
@@ -152,13 +152,13 @@ export function ResultsDisplay({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
           {isPerfume ? (
             <>
-              <ImageCard
+              {frontView && <ImageCard
                 title="Perfume Bottle - Front"
                 imageSrc={frontView}
                 isLoading={loadingState.frontView}
                 onRegenerate={onRegenerateFrontView}
                 fileName={`${baseImageName} - Bottle Front.png`}
-              />
+              />}
               {sideView && (
                 <ImageCard
                   title="Perfume Box - Front"
@@ -168,13 +168,13 @@ export function ResultsDisplay({
                   fileName={`${baseImageName} - Box Front.png`}
                 />
               )}
-              <ImageCard
+              {backView && <ImageCard
                 title="Perfume Box - Back"
                 imageSrc={backView}
                 isLoading={loadingState.backView}
                 onRegenerate={onRegenerateBackView}
                 fileName={`${baseImageName} - Box Back.png`}
-              />
+              />}
               {heroView && (
                  <ImageCard
                   title="Bottle + Box Hero View"
@@ -187,13 +187,13 @@ export function ResultsDisplay({
             </>
           ) : (
             <>
-              <ImageCard
+              {frontView && <ImageCard
                 title="Front View"
                 imageSrc={frontView}
                 isLoading={loadingState.frontView}
                 onRegenerate={onRegenerateFrontView}
                 fileName={`${baseImageName} - Front.png`}
-              />
+              />}
               
               {isTrousers && textureView ? (
                 <ImageCard
@@ -213,13 +213,13 @@ export function ResultsDisplay({
                 />
               )}
 
-              <ImageCard
+              {backView && <ImageCard
                 title="Back View"
                 imageSrc={backView}
                 isLoading={loadingState.backView}
                 onRegenerate={onRegenerateBackView}
                 fileName={`${baseImageName} - Back.png`}
-              />
+              />}
               
               {hdFlatlayImage && (
                 <ImageCard

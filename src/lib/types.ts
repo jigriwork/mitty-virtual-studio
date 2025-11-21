@@ -81,6 +81,9 @@ export const productFormSchema = z.object({
         validateFile(data.productImageFabric, ['productImageFabric']);
         validateFile(data.productImageBack, ['productImageBack']);
     } else if (data.productCategory === 'Perfume') {
+        if (!['Male', 'Female', 'Unisex'].includes(data.gender)) {
+             ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Please select a target audience.', path: ['gender'] });
+        }
         if (!data.fragranceFamily || data.fragranceFamily.trim() === '') {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Fragrance family is required.', path: ['fragranceFamily'] });
         }
@@ -101,7 +104,7 @@ export type GenerationResults = {
   sideView?: string;
   backView: string;
   textureView?: string;
-  hdFlatlayImage: string;
+  hdFlatlayImage?: string;
   heroView?: string; // For perfume
   productTitle: string;
   productDescription: string;

@@ -150,7 +150,6 @@ export default function Home() {
             sideView: boxFrontResult.perfumeBoxFront,       // box front
             backView: boxBackResult.perfumeBoxBack,         // box back
             heroView: heroResult.perfumeHeroView,           // hero view
-            hdFlatlayImage: '', // Not used for perfume
             productTitle: textResult.productTitle,
             productDescription: textResult.productDescription,
             productCategory: data.productCategory,
@@ -224,7 +223,7 @@ export default function Home() {
       
       const newResult = flowInput.productCategory === 'Perfume'
         ? { frontView: (result as any).perfumeBottleFront }
-        : result;
+        : { frontView: (result as any).frontView };
 
       setResults((prev) => (prev ? { ...prev, ...newResult } : null));
        toast({ title: "Front View Regenerated", description: "The front view image has been updated." });
@@ -247,7 +246,7 @@ export default function Home() {
 
       const newResult = flowInput.productCategory === 'Perfume'
         ? { sideView: (result as any).perfumeBoxFront }
-        : result;
+        : { sideView: (result as any).sideView };
 
       setResults((prev) => (prev ? { ...prev, ...newResult } : null));
        toast({ title: "Side View Regenerated", description: "The image has been updated." });
@@ -270,7 +269,7 @@ export default function Home() {
       
       const newResult = flowInput.productCategory === 'Perfume'
         ? { backView: (result as any).perfumeBoxBack }
-        : result;
+        : { backView: (result as any).backView };
       
       setResults((prev) => (prev ? { ...prev, ...newResult } : null));
        toast({ title: "Back View Regenerated", description: "The back view image has been updated." });
