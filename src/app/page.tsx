@@ -59,7 +59,6 @@ export default function Home() {
       fitType: '',
       materialStretch: 'No',
       fragranceFamily: '',
-      perfumeType: 'Extrait De Parfum',
       sizeMl: '',
     },
   });
@@ -101,7 +100,6 @@ export default function Home() {
         baseFlowInput.bottleImageUri = bottleUri;
         baseFlowInput.boxFrontImageUri = boxFrontUri;
         baseFlowInput.boxBackImageUri = boxBackUri;
-        baseFlowInput.perfumeType = 'Extrait De Parfum';
       } else {
         const imageUri = await fileToDataUri(data.productImage[0]);
         uris.main = imageUri;
@@ -206,9 +204,6 @@ export default function Home() {
       boxFrontImageUri: productImageUris.boxFront,
       boxBackImageUri: productImageUris.boxBack,
     };
-     if (data.productCategory === 'Perfume') {
-      flowInput.perfumeType = 'Extrait De Parfum';
-    }
     return flowInput;
   }
 
