@@ -41,12 +41,106 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                       <SelectItem value="Trousers">Trousers</SelectItem>
                       <SelectItem value="Jeans">Jeans</SelectItem>
                       <SelectItem value="Shoes">Shoes</SelectItem>
+                      <SelectItem value="Perfume">Perfume</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            {productCategory !== 'Perfume' && (
+              <FormField
+                control={form.control}
+                name="gender"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Gender</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Male">Male</SelectItem>
+                        <SelectItem value="Female">Female</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+             {productCategory === 'Perfume' && (
+              <>
+                 <FormField
+                  control={form.control}
+                  name="gender"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Target</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Select target audience" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Male">Men</SelectItem>
+                          <SelectItem value="Female">Women</SelectItem>
+                          <SelectItem value="Unisex">Unisex</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="fragranceFamily"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Fragrance Family</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Citrus, Woody, Oriental, Fresh" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="perfumeType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Perfume Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Select perfume type" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="EDP">EDP</SelectItem>
+                          <SelectItem value="EDT">EDT</SelectItem>
+                          <SelectItem value="Parfum">Parfum</SelectItem>
+                          <SelectItem value="Mist">Mist</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="sizeMl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Size (ml)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., 50 ml, 100 ml" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
+            
             {productCategory === 'Shirt' && (
               <FormField
                 control={form.control}
@@ -104,38 +198,22 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                 />
               </>
             )}
-            <FormField
-              control={form.control}
-              name="gender"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Gender</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Male">Male</SelectItem>
-                      <SelectItem value="Female">Female</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="fabricType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fabric Type</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., Linen, Cotton, Lycra" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+           
+            {(productCategory === 'Shirt' || productCategory === 'Shoes' || productCategory === 'Jeans' || productCategory === 'Trousers') && (
+               <FormField
+                  control={form.control}
+                  name="fabricType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{productCategory === 'Shoes' ? 'Material Type' : 'Fabric Type'}</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Linen, Cotton, Lycra, Leather" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+            )}
              <FormField
               control={form.control}
               name="color"
@@ -149,19 +227,21 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                 </FormItem>
               )}
             />
-             <FormField
-              control={form.control}
-              name="pattern"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Pattern (Optional)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., Floral, Solid, Stripes" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+             {productCategory !== 'Perfume' && (
+                <FormField
+                control={form.control}
+                name="pattern"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Pattern (Optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Floral, Solid, Stripes" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+             )}
             {(productCategory === 'Shirt' || productCategory === 'Shoes' || productCategory === 'Jeans') && (
               <FormField
                 control={form.control}
@@ -204,6 +284,41 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                     <FormItem>
                       <FormLabel>Back View Image</FormLabel>
                       <FileUpload form={form} name="productImageBack" />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
+             {productCategory === 'Perfume' && (
+              <div className="space-y-4 rounded-lg border p-4">
+                 <h3 className="text-sm font-medium text-foreground">Perfume Images</h3>
+                <FormField
+                  control={form.control}
+                  name="bottleImageFile"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel>Perfume Bottle Image</FormLabel>
+                      <FileUpload form={form} name="bottleImageFile" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="boxFrontImageFile"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel>Perfume Box Front Image</FormLabel>
+                      <FileUpload form={form} name="boxFrontImageFile" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="boxBackImageFile"
+                  render={() => (
+                    <FormItem>
+                      <FormLabel>Perfume Box Back Image</FormLabel>
+                      <FileUpload form={form} name="boxBackImageFile" />
                     </FormItem>
                   )}
                 />

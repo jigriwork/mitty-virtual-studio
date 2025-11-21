@@ -17,12 +17,14 @@ interface ResultsDisplayProps {
     backView: boolean;
     textureView: boolean;
     flatlay: boolean; 
+    heroView: boolean;
   };
   onRegenerateFrontView: () => void;
   onRegenerateSideView: () => void;
   onRegenerateBackView: () => void;
   onRegenerateTextureView: () => void;
   onRegenerateFlatlay: () => void;
+  onRegenerateHeroView: () => void;
 }
 
 export function ResultsDisplay({
@@ -33,29 +35,29 @@ export function ResultsDisplay({
   onRegenerateBackView,
   onRegenerateTextureView,
   onRegenerateFlatlay,
+  onRegenerateHeroView,
 }: ResultsDisplayProps) {
   
   const handleDownloadAll = async () => {
     if (!results) return;
 
     const zip = new JSZip();
-    const { productTitle, productDescription, frontView, sideView, backView, textureView, hdFlatlayImage, productCategory, color, fitType } = results;
+    const { productTitle, productDescription, frontView, sideView, backView, textureView, hdFlatlayImage, heroView, productCategory, color, fitType } = results;
     
     const isTrousers = productCategory === 'Trousers';
     const isShoes = productCategory === 'Shoes';
+    const isPerfume = productCategory === 'Perfume';
     
     let zipFileName = `${productTitle}.zip`;
-    let baseImageName = '';
-    
-    if (isTrousers) {
-      baseImageName = `Mitty ${color} ${fitType} Trousers`;
-      zipFileName = `${baseImageName}.zip`;
-    } else {
-      baseImageName = productTitle
+    let baseImageName = productTitle
         .replace(/Mitty\s/i, '')
         .replace(/\sfor\s(Men|Women|Unisex)$/i, '')
         .replace(/\s+/g, ' ')
         .trim();
+    
+    if (isTrousers && color && fitType) {
+      baseImageName = `Mitty ${color} ${fitType} Trousers`;
+      zipFileName = `${baseImageName}.zip`;
     }
 
     const addImageToZip = (dataUri: string, filename: string) => {
@@ -63,19 +65,26 @@ export function ResultsDisplay({
       zip.file(filename, base64, { base64: true });
     };
 
-    addImageToZip(frontView, `${baseImageName} - Front.png`);
-    addImageToZip(backView, `${baseImageName} - Back.png`);
+    if (isPerfume) {
+        addImageToZip(frontView, `${baseImageName} - Bottle Front.png`);
+        if(sideView) addImageToZip(sideView, `${baseImageName} - Box Front.png`);
+        addImageToZip(backView, `${baseImageName} - Box Back.png`);
+        if(heroView) addImageToZip(heroView, `${baseImageName} - Hero View.png`);
+    } else {
+        addImageToZip(frontView, `${baseImageName} - Front.png`);
+        addImageToZip(backView, `${baseImageName} - Back.png`);
 
-    if (isTrousers && textureView) {
-      addImageToZip(textureView, `${baseImageName} - Texture.png`);
-      addImageToZip(hdFlatlayImage, `${baseImageName} - Flat Lay.png`);
-    } else if (sideView) {
-      addImageToZip(sideView, `${baseImageName} - Side.png`);
-      addImageToZip(hdFlatlayImage, `${baseImageName} - ${isShoes ? 'Top' : 'Flat Lay'}.png`);
-    } else if (!isTrousers && !sideView) { // For shirts
-        addImageToZip(hdFlatlayImage, `${baseImageName} - Flat Lay.png`);
+        if (isTrousers && textureView) {
+            addImageToZip(textureView, `${baseImageName} - Texture.png`);
+        }
+        if (sideView && !isTrousers) {
+            addImageToZip(sideView, `${baseImageName} - Side.png`);
+        }
+        if (hdFlatlayImage) {
+            addImageToZip(hdFlatlayImage, `${baseImageName} - ${isShoes ? 'Top' : 'Flat Lay'}.png`);
+        }
     }
-
+    
     const txtContent = `Product Title: ${productTitle}\n\nProduct Description:\n${productDescription}`;
     zip.file('Product_Info.txt', txtContent);
 
@@ -106,19 +115,19 @@ export function ResultsDisplay({
     );
   }
 
-  const { productTitle, productDescription, frontView, sideView, backView, textureView, hdFlatlayImage, productCategory, color, fitType } = results;
+  const { productTitle, productDescription, frontView, sideView, backView, textureView, hdFlatlayImage, heroView, productCategory, color, fitType } = results;
   const isShoes = productCategory === 'Shoes';
   const isTrousers = productCategory === 'Trousers';
+  const isPerfume = productCategory === 'Perfume';
   
-  let baseImageName = '';
-    if (isTrousers) {
-      baseImageName = `Mitty ${color} ${fitType} Trousers`;
-    } else {
-      baseImageName = productTitle
+  let baseImageName = productTitle
         .replace(/Mitty\s/i, '')
         .replace(/\sfor\s(Men|Women|Unisex)$/i, '')
         .replace(/\s+/g, ' ')
         .trim();
+    
+    if (isTrousers && color && fitType) {
+      baseImageName = `Mitty ${color} ${fitType} Trousers`;
     }
 
   return (
@@ -141,47 +150,88 @@ export function ResultsDisplay({
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
-          <ImageCard
-            title="Front View"
-            imageSrc={frontView}
-            isLoading={loadingState.frontView}
-            onRegenerate={onRegenerateFrontView}
-            fileName={`${baseImageName} - Front.png`}
-          />
-          
-          {isTrousers && textureView ? (
-            <ImageCard
-              title="Material Texture"
-              imageSrc={textureView}
-              isLoading={loadingState.textureView}
-              onRegenerate={onRegenerateTextureView}
-              fileName={`${baseImageName} - Texture.png`}
-            />
+          {isPerfume ? (
+            <>
+              <ImageCard
+                title="Perfume Bottle - Front"
+                imageSrc={frontView}
+                isLoading={loadingState.frontView}
+                onRegenerate={onRegenerateFrontView}
+                fileName={`${baseImageName} - Bottle Front.png`}
+              />
+              {sideView && (
+                <ImageCard
+                  title="Perfume Box - Front"
+                  imageSrc={sideView}
+                  isLoading={loadingState.sideView}
+                  onRegenerate={onRegenerateSideView}
+                  fileName={`${baseImageName} - Box Front.png`}
+                />
+              )}
+              <ImageCard
+                title="Perfume Box - Back"
+                imageSrc={backView}
+                isLoading={loadingState.backView}
+                onRegenerate={onRegenerateBackView}
+                fileName={`${baseImageName} - Box Back.png`}
+              />
+              {heroView && (
+                 <ImageCard
+                  title="Bottle + Box Hero View"
+                  imageSrc={heroView}
+                  isLoading={loadingState.heroView}
+                  onRegenerate={onRegenerateHeroView}
+                  fileName={`${baseImageName} - Hero View.png`}
+                />
+              )}
+            </>
           ) : (
-            sideView && <ImageCard
-              title="Side View"
-              imageSrc={sideView}
-              isLoading={loadingState.sideView}
-              onRegenerate={onRegenerateSideView}
-              fileName={`${baseImageName} - Side.png`}
-            />
-          )}
+            <>
+              <ImageCard
+                title="Front View"
+                imageSrc={frontView}
+                isLoading={loadingState.frontView}
+                onRegenerate={onRegenerateFrontView}
+                fileName={`${baseImageName} - Front.png`}
+              />
+              
+              {isTrousers && textureView ? (
+                <ImageCard
+                  title="Material Texture"
+                  imageSrc={textureView}
+                  isLoading={loadingState.textureView}
+                  onRegenerate={onRegenerateTextureView}
+                  fileName={`${baseImageName} - Texture.png`}
+                />
+              ) : (
+                sideView && <ImageCard
+                  title="Side View"
+                  imageSrc={sideView}
+                  isLoading={loadingState.sideView}
+                  onRegenerate={onRegenerateSideView}
+                  fileName={`${baseImageName} - Side.png`}
+                />
+              )}
 
-          <ImageCard
-            title="Back View"
-            imageSrc={backView}
-            isLoading={loadingState.backView}
-            onRegenerate={onRegenerateBackView}
-            fileName={`${baseImageName} - Back.png`}
-          />
-          
-          <ImageCard
-            title={isTrousers ? "Flat Lay" : (isShoes ? "Top View" : "HD Flat Lay")}
-            imageSrc={hdFlatlayImage}
-            isLoading={loadingState.flatlay}
-            onRegenerate={onRegenerateFlatlay}
-            fileName={`${baseImageName} - ${isTrousers ? 'Flat Lay' : (isShoes ? 'Top' : 'Flat Lay')}.png`}
-          />
+              <ImageCard
+                title="Back View"
+                imageSrc={backView}
+                isLoading={loadingState.backView}
+                onRegenerate={onRegenerateBackView}
+                fileName={`${baseImageName} - Back.png`}
+              />
+              
+              {hdFlatlayImage && (
+                <ImageCard
+                  title={isTrousers ? "Flat Lay" : (isShoes ? "Top View" : "HD Flat Lay")}
+                  imageSrc={hdFlatlayImage}
+                  isLoading={loadingState.flatlay}
+                  onRegenerate={onRegenerateFlatlay}
+                  fileName={`${baseImageName} - ${isTrousers ? 'Flat Lay' : (isShoes ? 'Top' : 'Flat Lay')}.png`}
+                />
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

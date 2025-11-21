@@ -9,6 +9,11 @@ import { generateSideView } from '@/ai/flows/generate-side-view';
 import { generateBackView } from '@/ai/flows/generate-back-view';
 import { generateTextureView } from '@/ai/flows/generate-texture-view';
 import { generateProductTitleDescription } from '@/ai/flows/generate-product-title-description';
+import { generatePerfumeBottleFront } from '@/ai/flows/generate-perfume-bottle-front';
+import { generatePerfumeBoxFront } from '@/ai/flows/generate-perfume-box-front';
+import { generatePerfumeBoxBack } from '@/ai/flows/generate-perfume-box-back';
+import { generatePerfumeHeroView } from '@/ai/flows/generate-perfume-hero-view';
+
 import { MittyLogo } from '@/components/mitty-logo';
 import { ProductForm } from '@/components/product-form';
 import { ResultsDisplay } from '@/components/results-display';
@@ -25,6 +30,7 @@ type GeneratingState = {
   backView: boolean;
   textureView: boolean;
   flatlay: boolean;
+  heroView: boolean;
 };
 
 export default function Home() {
@@ -37,6 +43,7 @@ export default function Home() {
     backView: false,
     textureView: false,
     flatlay: false,
+    heroView: false,
   });
   const { toast } = useToast();
 
@@ -51,17 +58,24 @@ export default function Home() {
       sleeveType: 'Full Sleeve',
       fitType: '',
       materialStretch: 'No',
+      fragranceFamily: '',
+      perfumeType: 'EDP',
+      sizeMl: '',
     },
   });
 
   const onSubmit = async (data: ProductFormValues) => {
-    setGenerating({ all: true, frontView: true, sideView: true, backView: true, textureView: true, flatlay: true });
+    setGenerating({ all: true, frontView: true, sideView: true, backView: true, textureView: true, flatlay: true, heroView: true });
     setResults(null);
     setProductImageUris({});
     
     try {
       const uris: {[key: string]: string} = {};
-      const baseFlowInput: GenerateProductViewInput = { ...data, fitType: data.fitType || undefined };
+      const baseFlowInput: GenerateProductViewInput = { 
+        ...data, 
+        fitType: data.fitType || undefined,
+        fabricType: data.fabricType || undefined
+      };
 
       if (data.productCategory === 'Trousers') {
         const [frontUri, fabricUri, backUri] = await Promise.all([
@@ -75,6 +89,18 @@ export default function Home() {
         baseFlowInput.productImageFront = frontUri;
         baseFlowInput.productImageFabric = fabricUri;
         baseFlowInput.productImageBack = backUri;
+      } else if (data.productCategory === 'Perfume') {
+        const [bottleUri, boxFrontUri, boxBackUri] = await Promise.all([
+            fileToDataUri(data.bottleImageFile[0]),
+            fileToDataUri(data.boxFrontImageFile[0]),
+            fileToDataUri(data.boxBackImageFile[0]),
+        ]);
+        uris.bottle = bottleUri;
+        uris.boxFront = boxFrontUri;
+        uris.boxBack = boxBackUri;
+        baseFlowInput.bottleImageUri = bottleUri;
+        baseFlowInput.boxFrontImageUri = boxFrontUri;
+        baseFlowInput.boxBackImageUri = boxBackUri;
       } else {
         const imageUri = await fileToDataUri(data.productImage[0]);
         uris.main = imageUri;
@@ -113,6 +139,25 @@ export default function Home() {
           fitType: data.fitType,
         });
 
+      } else if (data.productCategory === 'Perfume') {
+        const [bottleFrontResult, boxFrontResult, boxBackResult, heroResult] = await Promise.all([
+            generatePerfumeBottleFront(imageFlowInput),
+            generatePerfumeBoxFront(imageFlowInput),
+            generatePerfumeBoxBack(imageFlowInput),
+            generatePerfumeHeroView(imageFlowInput),
+        ]);
+
+        setResults({
+            frontView: bottleFrontResult.perfumeBottleFront, // bottle front
+            sideView: boxFrontResult.perfumeBoxFront,       // box front
+            backView: boxBackResult.perfumeBoxBack,         // box back
+            heroView: heroResult.perfumeHeroView,           // hero view
+            hdFlatlayImage: '', // Not used for perfume
+            productTitle: textResult.productTitle,
+            productDescription: textResult.productDescription,
+            productCategory: data.productCategory,
+            color: detectedColor,
+        });
       } else {
         const [frontResult, sideResult, backResult, flatlayResult] = await Promise.all([
           generateFrontView(imageFlowInput),
@@ -141,7 +186,7 @@ export default function Home() {
         description: 'An error occurred while generating assets. Please check the console and try again.',
       });
     } finally {
-      setGenerating({ all: false, frontView: false, sideView: false, backView: false, textureView: false, flatlay: false });
+      setGenerating({ all: false, frontView: false, sideView: false, backView: false, textureView: false, flatlay: false, heroView: false });
     }
   };
 
@@ -150,11 +195,15 @@ export default function Home() {
     return {
       ...data,
       fitType: data.fitType || undefined,
+      fabricType: data.fabricType || undefined,
       color: results?.color || data.color,
       productImage: productImageUris.main,
       productImageFront: productImageUris.front,
       productImageFabric: productImageUris.fabric,
       productImageBack: productImageUris.back,
+      bottleImageUri: productImageUris.bottle,
+      boxFrontImageUri: productImageUris.boxFront,
+      boxBackImageUri: productImageUris.boxBack,
     };
   }
 
@@ -162,8 +211,16 @@ export default function Home() {
     if (Object.keys(productImageUris).length === 0) return;
     setGenerating((prev) => ({ ...prev, frontView: true }));
     try {
-      const result = await generateFrontView(getFlowInputForRegen());
-      setResults((prev) => (prev ? { ...prev, ...result } : null));
+      const flowInput = getFlowInputForRegen();
+      const result = flowInput.productCategory === 'Perfume'
+        ? await generatePerfumeBottleFront(flowInput)
+        : await generateFrontView(flowInput);
+      
+      const newResult = flowInput.productCategory === 'Perfume'
+        ? { frontView: (result as any).perfumeBottleFront }
+        : result;
+
+      setResults((prev) => (prev ? { ...prev, ...newResult } : null));
        toast({ title: "Front View Regenerated", description: "The front view image has been updated." });
     } catch (e) {
       console.error(e);
@@ -174,15 +231,23 @@ export default function Home() {
   };
 
   const handleRegenerateSideView = async () => {
-    if (!productImageUris.main) return;
+    if (Object.keys(productImageUris).length === 0) return;
     setGenerating((prev) => ({ ...prev, sideView: true }));
     try {
-      const result = await generateSideView(getFlowInputForRegen());
-      setResults((prev) => (prev ? { ...prev, ...result } : null));
-       toast({ title: "Side View Regenerated", description: "The side view image has been updated." });
+      const flowInput = getFlowInputForRegen();
+       const result = flowInput.productCategory === 'Perfume'
+        ? await generatePerfumeBoxFront(flowInput)
+        : await generateSideView(flowInput);
+
+      const newResult = flowInput.productCategory === 'Perfume'
+        ? { sideView: (result as any).perfumeBoxFront }
+        : result;
+
+      setResults((prev) => (prev ? { ...prev, ...newResult } : null));
+       toast({ title: "Side View Regenerated", description: "The image has been updated." });
     } catch (e) {
       console.error(e);
-      toast({ variant: 'destructive', title: 'Regeneration Failed', description: 'Could not regenerate the side view image.' });
+      toast({ variant: 'destructive', title: 'Regeneration Failed', description: 'Could not regenerate the image.' });
     } finally {
       setGenerating((prev) => ({ ...prev, sideView: false }));
     }
@@ -192,8 +257,16 @@ export default function Home() {
     if (Object.keys(productImageUris).length === 0) return;
     setGenerating((prev) => ({ ...prev, backView: true }));
     try {
-      const result = await generateBackView(getFlowInputForRegen());
-      setResults((prev) => (prev ? { ...prev, ...result } : null));
+      const flowInput = getFlowInputForRegen();
+      const result = flowInput.productCategory === 'Perfume'
+        ? await generatePerfumeBoxBack(flowInput)
+        : await generateBackView(flowInput);
+      
+      const newResult = flowInput.productCategory === 'Perfume'
+        ? { backView: (result as any).perfumeBoxBack }
+        : result;
+      
+      setResults((prev) => (prev ? { ...prev, ...newResult } : null));
        toast({ title: "Back View Regenerated", description: "The back view image has been updated." });
     } catch (e) {
       console.error(e);
@@ -203,7 +276,7 @@ export default function Home() {
     }
   };
 
-  const handleRegenerateTextureView = async () => {
+  const handleRegenerateTextureView = async () => { // Only for trousers
     if (!productImageUris.fabric) return;
     setGenerating((prev) => ({ ...prev, textureView: true }));
     try {
@@ -217,6 +290,26 @@ export default function Home() {
       setGenerating((prev) => ({ ...prev, textureView: false }));
     }
   };
+  
+  const handleRegenerateHeroView = async () => { // Only for perfume
+    if (Object.keys(productImageUris).length === 0) return;
+    setGenerating((prev) => ({ ...prev, heroView: true }));
+    try {
+      const result = await generatePerfumeHeroView(getFlowInputForRegen());
+      setResults((prev) => (prev ? { ...prev, heroView: result.perfumeHeroView } : null));
+      toast({ title: "Hero View Regenerated", description: "The image has been updated." });
+    } catch (e) {
+      console.error(e);
+      toast({
+        variant: 'destructive',
+        title: 'Regeneration Failed',
+        description: 'Could not regenerate the image.',
+      });
+    } finally {
+      setGenerating((prev) => ({ ...prev, heroView: false }));
+    }
+  };
+
 
   const handleRegenerateFlatlay = async () => {
     if (Object.keys(productImageUris).length === 0) return;
@@ -259,6 +352,7 @@ export default function Home() {
               onRegenerateBackView={handleRegenerateBackView}
               onRegenerateTextureView={handleRegenerateTextureView}
               onRegenerateFlatlay={handleRegenerateFlatlay}
+              onRegenerateHeroView={handleRegenerateHeroView}
             />
           </div>
         </div>
