@@ -33,7 +33,7 @@ Lighting should feel luxurious with gentle reflections on the glass. Do not add 
 The final image must match the real product exactly for ecommerce listing.`
 
     const {media} = await ai.generate({
-      model: 'googleai/gemini-2.0-flash-preview-image-generation',
+      model: 'googleai/imagen-2',
       prompt: [{media: {url: input.bottleImageUri!}}, {text: promptText}],
       config: {
         responseModalities: ['TEXT', 'IMAGE'],

@@ -138,18 +138,38 @@ export default function Home() {
         });
 
       } else if (data.productCategory === 'Perfume') {
-        const [bottleFrontResult, boxFrontResult, boxBackResult, heroResult] = await Promise.all([
-            generatePerfumeBottleFront(imageFlowInput),
-            generatePerfumeBoxFront(imageFlowInput),
-            generatePerfumeBoxBack(imageFlowInput),
-            generatePerfumeHeroView(imageFlowInput),
-        ]);
+        // Individual calls with error handling for each
+        let bottleFront = '', boxFront = '', boxBack = '', hero = '';
+        
+        try {
+           const res = await generatePerfumeBottleFront(imageFlowInput);
+           bottleFront = res.perfumeBottleFront;
+        } catch (e) { console.error("Bottle Front Failed", e); }
+
+        try {
+           const res = await generatePerfumeBoxFront(imageFlowInput);
+           boxFront = res.perfumeBoxFront;
+        } catch (e) { console.error("Box Front Failed", e); }
+
+        try {
+           const res = await generatePerfumeBoxBack(imageFlowInput);
+           boxBack = res.perfumeBoxBack;
+        } catch (e) { console.error("Box Back Failed", e); }
+
+        try {
+           const res = await generatePerfumeHeroView(imageFlowInput);
+           hero = res.perfumeHeroView;
+        } catch (e) { console.error("Hero View Failed", e); }
+
+        if (!bottleFront && !boxFront && !boxBack && !hero) {
+            throw new Error("All perfume image generations failed.");
+        }
 
         setResults({
-            frontView: bottleFrontResult.perfumeBottleFront, // bottle front
-            sideView: boxFrontResult.perfumeBoxFront,       // box front
-            backView: boxBackResult.perfumeBoxBack,         // box back
-            heroView: heroResult.perfumeHeroView,           // hero view
+            frontView: bottleFront, 
+            sideView: boxFront,       
+            backView: boxBack,         
+            heroView: hero,           
             productTitle: textResult.productTitle,
             productDescription: textResult.productDescription,
             productCategory: data.productCategory,

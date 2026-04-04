@@ -32,7 +32,7 @@ The box must be shot straight-on against the same light background as the front 
 All text should be sharp and readable.`
 
     const {media} = await ai.generate({
-      model: 'googleai/gemini-2.0-flash-preview-image-generation',
+      model: 'googleai/imagen-2',
       prompt: [{media: {url: input.boxBackImageUri!}}, {text: promptText}],
       config: {
         responseModalities: ['TEXT', 'IMAGE'],

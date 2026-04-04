@@ -62,7 +62,7 @@ Background should be solid beige or light grey. The model’s face must remain t
     }
 
     const {media} = await ai.generate({
-      model: 'googleai/gemini-2.0-flash-preview-image-generation',
+      model: 'googleai/imagen-2',
       prompt: [...promptMedia, {text: promptText}],
       config: {
         responseModalities: ['TEXT', 'IMAGE'],

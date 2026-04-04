@@ -32,7 +32,7 @@ The box must be photographed straight-on, centered on a clean soft beige or off-
 This image should look like a real studio packshot for ecommerce.`
 
     const {media} = await ai.generate({
-      model: 'googleai/gemini-2.0-flash-preview-image-generation',
+      model: 'googleai/imagen-2',
       prompt: [{media: {url: input.boxFrontImageUri!}}, {text: promptText}],
       config: {
         responseModalities: ['TEXT', 'IMAGE'],

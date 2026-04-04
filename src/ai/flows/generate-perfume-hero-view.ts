@@ -32,18 +32,50 @@ Both items must be on a clean, premium light background (soft beige or off-white
 The lighting should be luxurious and professional, suitable for a main product banner.
 Ensure both the bottle and box perfectly match the branding, colors, and design from the reference images. Do not add or change any text.`
 
-    const {media} = await ai.generate({
-      model: 'googleai/gemini-2.0-flash-preview-image-generation',
+    if (!input.bottleImageUri) {
+       throw new Error('Bottle image is required for hero view.');
+    }
+
+    // Try with both images first
+    if (input.boxFrontImageUri) {
+      try {
+        const {media} = await ai.generate({
+          model: 'googleai/imagen-2',
+          prompt: [
+            {media: {url: input.bottleImageUri}},
+            {media: {url: input.boxFrontImageUri}},
+            {text: promptText}
+          ],
+          config: {
+            responseModalities: ['TEXT', 'IMAGE'],
+          },
+        });
+
+        if (media?.url) {
+          return {perfumeHeroView: media.url};
+        }
+      } catch (e) {
+        console.warn("Failed to generate hero view with both images, falling back to single image.", e);
+      }
+    }
+
+    // Fallback: Use only the bottle image
+    const fallbackPrompt = promptText + "\n\nNote: Generating with bottle reference only. Render a matching box behind it.";
+    const {media, text} = await ai.generate({
+      model: 'googleai/imagen-2',
       prompt: [
-        {media: {url: input.bottleImageUri!}},
-        {media: {url: input.boxFrontImageUri!}},
-        {text: promptText}
+        {media: {url: input.bottleImageUri}},
+        {text: fallbackPrompt}
       ],
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },
     });
 
-    return {perfumeHeroView: media!.url!};
+    if (!media?.url) {
+      throw new Error(`Failed to generate image. Model output: ${text || 'No text output'}`);
+    }
+
+    return {perfumeHeroView: media.url};
   }
 );
