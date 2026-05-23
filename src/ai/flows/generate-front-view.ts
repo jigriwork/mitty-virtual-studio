@@ -11,6 +11,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { GenerateProductViewInputSchema, type GenerateProductViewInput } from './types';
 
+type PromptMedia = {media: {url: string}};
 
 const GenerateFrontViewOutputSchema = z.object({
   frontView: z.string().describe("A photorealistic image of the product's front view, as a data URI."),
@@ -29,7 +30,7 @@ const generateFrontViewFlow = ai.defineFlow(
   },
   async (input) => {
     let promptText = '';
-    let promptMedia: any[] = [];
+    let promptMedia: PromptMedia[] = [];
 
     if (input.productCategory === 'Trousers') {
         promptText = `Generate a realistic full-body image of a male model standing straight in a studio. He is wearing ${input.fitType} formal trousers made of ${input.fabricType} in ${input.color}. The model has a white or black tucked-in formal shirt and black dress shoes. Both legs should be straight, showing perfect trouser fall and crease. Sleeves must not be rolled. The waistband, belt loops, pockets, and fabric must exactly match the uploaded image. Keep facial expression neutral and posture professional. Use a soft beige background.`;

@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+type UploadedFiles = File[];
 
 export const productFormSchema = z.object({
   productCategory: z.enum(['Shirt', 'Trousers', 'Jeans', 'Shoes', 'Perfume'], {
@@ -14,20 +15,20 @@ export const productFormSchema = z.object({
   pattern: z.string().optional(),
   fitType: z.string().optional(),
   materialStretch: z.enum(['Yes', 'No']).optional(),
-  productImage: z.any().optional(),
-  productImageFront: z.any().optional(),
-  productImageFabric: z.any().optional(),
-  productImageBack: z.any().optional(),
+  productImage: z.custom<UploadedFiles>().optional().nullable(),
+  productImageFront: z.custom<UploadedFiles>().optional().nullable(),
+  productImageFabric: z.custom<UploadedFiles>().optional().nullable(),
+  productImageBack: z.custom<UploadedFiles>().optional().nullable(),
   // Perfume fields
   fragranceName: z.string().optional(),
   fragranceFamily: z.string().optional(),
   sizeMl: z.string().optional(),
-  bottleImageFile: z.any().optional(),
-  boxFrontImageFile: z.any().optional(),
-  boxBackImageFile: z.any().optional(),
+  bottleImageFile: z.custom<UploadedFiles>().optional().nullable(),
+  boxFrontImageFile: z.custom<UploadedFiles>().optional().nullable(),
+  boxBackImageFile: z.custom<UploadedFiles>().optional().nullable(),
 
 }).superRefine((data, ctx) => {
-    const validateFile = (files: any, path: (string | number)[]) => {
+    const validateFile = (files: UploadedFiles | null | undefined, path: (string | number)[]) => {
       if (files && files.length === 1) {
         if (files[0].size > MAX_FILE_SIZE) {
           ctx.addIssue({

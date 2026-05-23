@@ -12,6 +12,8 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { type GenerateProductViewInput, GenerateProductViewInputSchema } from './types';
 
+type PromptMedia = {media: {url: string}};
+
 const GenerateBackViewOutputSchema = z.object({
   backView: z.string().describe("A photorealistic image of the product's back view, as a data URI."),
 });
@@ -29,7 +31,7 @@ const generateBackViewFlow = ai.defineFlow(
   },
   async (input) => {
     let promptText = '';
-    let promptMedia: any[] = [];
+    let promptMedia: PromptMedia[] = [];
 
     if (input.productCategory === 'Trousers') {
         promptText = `Generate a back view of the same model, standing straight with arms by the side, wearing the same ${input.color} ${input.fitType} ${input.materialStretch === 'Yes' ? 'stretch' : ''} trousers. Clearly show back welt pockets, seams, and waistband as shown in the uploaded product image. Use the same lighting and background as the front view. Fabric must still show ${input.materialStretch === 'Yes' ? 'slight stretch' : 'a standard fall'} and a clean finish. No model pose changes.`;

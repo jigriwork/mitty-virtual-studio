@@ -12,6 +12,8 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { GenerateProductViewInputSchema, type GenerateProductViewInput } from './types';
 
+type PromptMedia = {media: {url: string}};
+
 const GenerateHdFlatlayOutputSchema = z.object({
   hdFlatlayImage: z
     .string()
@@ -33,7 +35,7 @@ const generateHdFlatlayFlow = ai.defineFlow(
   },
   async input => {
     let promptText = '';
-    let promptMedia: any[] = [];
+    let promptMedia: PromptMedia[] = [];
 
     if (input.productCategory === 'Trousers') {
         promptText = `Generate a clean, high-resolution flat lay image of the ${input.color} formal trousers based on the uploaded product photo. Show them fully spread and neatly arranged, with waistband, belt loops, and front pocket lines visible. Ensure the MITTY tag/logo remains untouched and readable. Use white or beige background with soft shadows and sharp focus. This image will be used directly for ecommerce listing.`;

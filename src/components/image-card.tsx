@@ -2,6 +2,7 @@
 
 import { Download, Loader2, RefreshCw } from 'lucide-react';
 import Image from 'next/image';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,9 +14,10 @@ interface ImageCardProps {
   isLoading: boolean;
   onRegenerate: () => void;
   fileName: string;
+  badge?: string;
 }
 
-export function ImageCard({ title, imageSrc, isLoading, onRegenerate, fileName }: ImageCardProps) {
+export function ImageCard({ title, imageSrc, isLoading, onRegenerate, fileName, badge }: ImageCardProps) {
   const handleDownload = () => {
     const link = document.createElement('a');
     link.href = imageSrc;
@@ -26,9 +28,14 @@ export function ImageCard({ title, imageSrc, isLoading, onRegenerate, fileName }
   };
   
   return (
-    <Card className="overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300">
-      <CardHeader className="flex-row items-center justify-between py-3 px-4 border-b">
-        <CardTitle className="text-base font-medium">{title}</CardTitle>
+    <Card className="overflow-hidden border-black/10 bg-white shadow-sm transition-shadow duration-300 hover:shadow-lg">
+      <CardHeader className="flex-row items-center justify-between gap-3 border-b border-black/10 px-4 py-3">
+        <CardTitle className="min-w-0 truncate text-base font-medium text-[#171717]">{title}</CardTitle>
+        {badge && (
+          <Badge variant="outline" className="shrink-0 border-[#d8c39b] bg-[#fff8ea] text-[#8a6635]">
+            {badge}
+          </Badge>
+        )}
       </CardHeader>
       <CardContent className="p-0 aspect-square relative">
         {isLoading ? (
@@ -36,10 +43,10 @@ export function ImageCard({ title, imageSrc, isLoading, onRegenerate, fileName }
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <Image src={imageSrc} alt={title} layout="fill" objectFit="cover" />
+          <Image src={imageSrc} alt={title} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
         )}
       </CardContent>
-      <CardFooter className="p-2 bg-muted/50 flex justify-end gap-2">
+      <CardFooter className="flex justify-end gap-2 bg-[#fbf8f1] p-2">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>

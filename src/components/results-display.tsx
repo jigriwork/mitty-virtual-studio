@@ -1,11 +1,13 @@
 'use client';
 
-import { Download, Package, RefreshCw, Shirt } from 'lucide-react';
+import { Package, Shirt, Sparkles } from 'lucide-react';
 import JSZip from 'jszip';
 import type { GenerationResults } from '@/lib/types';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { ImageCard, ImageCardSkeleton } from './image-card';
+import { SeoPreviewPanel } from './seo-preview-panel';
 import { Skeleton } from './ui/skeleton';
 
 interface ResultsDisplayProps {
@@ -103,19 +105,26 @@ export function ResultsDisplay({
   
   if (!results) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-12 text-center bg-background">
-        <div className="p-4 rounded-full bg-primary/10 mb-4">
-          <Shirt className="h-12 w-12 text-primary" />
-        </div>
-        <h2 className="text-2xl font-semibold text-foreground">Ready to Create?</h2>
-        <p className="mt-2 text-muted-foreground">
-          Fill out the product details on the left and click 'Generate' to see the magic happen.
-        </p>
+      <div className="grid gap-5">
+        <Card className="border-black/10 bg-white/80 shadow-sm backdrop-blur">
+          <CardContent className="flex min-h-[460px] flex-col items-center justify-center p-8 text-center sm:p-12">
+            <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-[#171717] text-[#f4d99f]">
+              <Shirt className="h-8 w-8" />
+            </div>
+            <Badge className="mt-6 bg-[#171717] text-[#f4d99f] hover:bg-[#171717]">
+              Step 2
+            </Badge>
+            <h2 className="mt-4 text-2xl font-semibold text-[#171717]">AI Outputs Await</h2>
+            <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
+              Fill out the product details and generate model photos, packshots, and basic SEO copy for review.
+            </p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
-  const { productTitle, productDescription, frontView, sideView, backView, textureView, hdFlatlayImage, heroView, productCategory, color, fitType } = results;
+  const { productTitle, frontView, sideView, backView, textureView, hdFlatlayImage, heroView, productCategory, color, fitType } = results;
   const isShoes = productCategory === 'Shoes';
   const isTrousers = productCategory === 'Trousers';
   const isPerfume = productCategory === 'Perfume';
@@ -131,25 +140,29 @@ export function ResultsDisplay({
     }
 
   return (
-    <div className="p-6 bg-background h-full overflow-y-auto">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
-          <Card className="flex-1">
-            <CardHeader>
-              <CardTitle>Generated Details</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <h2 className="text-2xl font-bold font-headline text-foreground">{productTitle}</h2>
-              <p className="mt-2 text-muted-foreground">{productDescription}</p>
-            </CardContent>
-          </Card>
-          <Button onClick={handleDownloadAll} size="lg" disabled={!productTitle}>
+    <div className="grid gap-5">
+      <div className="flex flex-col gap-4 rounded-lg border border-black/10 bg-white/80 p-4 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className="bg-[#171717] text-[#f4d99f] hover:bg-[#171717]">Review</Badge>
+            <Badge variant="outline" className="border-[#d8c39b] bg-[#fff8ea] text-[#8a6635]">
+              Review before publishing
+            </Badge>
+          </div>
+          <h2 className="mt-3 text-2xl font-semibold tracking-tight text-[#171717]">Generated Output Review</h2>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            Regenerate individual views, download single assets, or export the full product pack.
+          </p>
+        </div>
+        <Button onClick={handleDownloadAll} size="lg" disabled={!productTitle} className="h-11 bg-[#171717] text-white hover:bg-[#2a2a2a]">
             <Package className="mr-2 h-5 w-5" />
             Download All (.zip)
-          </Button>
-        </div>
+        </Button>
+      </div>
+
+      <SeoPreviewPanel results={results} />
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           {isPerfume ? (
             <>
               {frontView && <ImageCard
@@ -158,6 +171,7 @@ export function ResultsDisplay({
                 isLoading={loadingState.frontView}
                 onRegenerate={onRegenerateFrontView}
                 fileName={`${baseImageName} - Bottle Front.png`}
+                badge="Bottle"
               />}
               {sideView && (
                 <ImageCard
@@ -166,6 +180,7 @@ export function ResultsDisplay({
                   isLoading={loadingState.sideView}
                   onRegenerate={onRegenerateSideView}
                   fileName={`${baseImageName} - Box Front.png`}
+                  badge="Box Front"
                 />
               )}
               {backView && <ImageCard
@@ -174,6 +189,7 @@ export function ResultsDisplay({
                 isLoading={loadingState.backView}
                 onRegenerate={onRegenerateBackView}
                 fileName={`${baseImageName} - Box Back.png`}
+                badge="Box Back"
               />}
               {heroView && (
                  <ImageCard
@@ -182,6 +198,7 @@ export function ResultsDisplay({
                   isLoading={loadingState.heroView}
                   onRegenerate={onRegenerateHeroView}
                   fileName={`${baseImageName} - Hero View.png`}
+                  badge="Hero"
                 />
               )}
             </>
@@ -193,6 +210,7 @@ export function ResultsDisplay({
                 isLoading={loadingState.frontView}
                 onRegenerate={onRegenerateFrontView}
                 fileName={`${baseImageName} - Front.png`}
+                badge="Front"
               />}
               
               {isTrousers && textureView ? (
@@ -202,6 +220,7 @@ export function ResultsDisplay({
                   isLoading={loadingState.textureView}
                   onRegenerate={onRegenerateTextureView}
                   fileName={`${baseImageName} - Texture.png`}
+                  badge="Texture"
                 />
               ) : (
                 sideView && <ImageCard
@@ -210,6 +229,7 @@ export function ResultsDisplay({
                   isLoading={loadingState.sideView}
                   onRegenerate={onRegenerateSideView}
                   fileName={`${baseImageName} - Side.png`}
+                  badge="Side"
                 />
               )}
 
@@ -219,6 +239,7 @@ export function ResultsDisplay({
                 isLoading={loadingState.backView}
                 onRegenerate={onRegenerateBackView}
                 fileName={`${baseImageName} - Back.png`}
+                badge="Back"
               />}
               
               {hdFlatlayImage && (
@@ -228,33 +249,40 @@ export function ResultsDisplay({
                   isLoading={loadingState.flatlay}
                   onRegenerate={onRegenerateFlatlay}
                   fileName={`${baseImageName} - ${isTrousers ? 'Flat Lay' : (isShoes ? 'Top' : 'Flat Lay')}.png`}
+                  badge={isShoes ? 'Top' : 'Flatlay'}
                 />
               )}
             </>
           )}
-        </div>
       </div>
     </div>
   );
 }
 
 const LoadingSkeleton = () => (
-   <div className="p-6 bg-background h-full">
-      <div className="max-w-4xl mx-auto animate-pulse">
-         <div className="flex justify-between gap-4 mb-6">
-          <div className="flex-1 space-y-4">
-            <Skeleton className="h-8 w-3/4" />
-            <Skeleton className="h-5 w-full" />
-            <Skeleton className="h-5 w-5/6" />
+   <div className="grid gap-5">
+      <Card className="border-black/10 bg-white/80 shadow-sm">
+        <CardContent className="p-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#171717] text-[#f4d99f]">
+              <Sparkles className="h-5 w-5 animate-pulse" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-[#171717]">Generating studio assets</h2>
+              <p className="text-sm text-muted-foreground">AI is creating copy and product views.</p>
+            </div>
           </div>
-          <Skeleton className="h-12 w-48 rounded-md" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <ImageCardSkeleton />
-          <ImageCardSkeleton />
-          <ImageCardSkeleton />
-          <ImageCardSkeleton />
-        </div>
+          <div className="mt-5 space-y-3">
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-4/5" />
+          </div>
+        </CardContent>
+      </Card>
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <ImageCardSkeleton />
+        <ImageCardSkeleton />
+        <ImageCardSkeleton />
+        <ImageCardSkeleton />
       </div>
     </div>
 );

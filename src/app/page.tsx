@@ -14,9 +14,11 @@ import { generatePerfumeBoxFront } from '@/ai/flows/generate-perfume-box-front';
 import { generatePerfumeBoxBack } from '@/ai/flows/generate-perfume-box-back';
 import { generatePerfumeHeroView } from '@/ai/flows/generate-perfume-hero-view';
 
-import { MittyLogo } from '@/components/mitty-logo';
+import { AppShell, type AppSection } from '@/components/app-shell';
+import { PlaceholderSection } from '@/components/placeholder-section';
 import { ProductForm } from '@/components/product-form';
 import { ResultsDisplay } from '@/components/results-display';
+import { StudioWorkspace } from '@/components/studio-workspace';
 import { useToast } from '@/hooks/use-toast';
 import type { GenerationResults, ProductFormValues } from '@/lib/types';
 import { productFormSchema } from '@/lib/types';
@@ -34,6 +36,7 @@ type GeneratingState = {
 };
 
 export default function Home() {
+  const [activeSection, setActiveSection] = useState<AppSection>('studio');
   const [results, setResults] = useState<GenerationResults | null>(null);
   const [productImageUris, setProductImageUris] = useState<{[key:string]: string}>({});
   const [generating, setGenerating] = useState<GeneratingState>({
@@ -71,15 +74,34 @@ export default function Home() {
     
     try {
       const uris: {[key: string]: string} = {};
+      const getUploadedFile = (files: File[] | null | undefined, fieldName: string) => {
+        const file = files?.[0];
+
+        if (!file) {
+          throw new Error(`${fieldName} is required.`);
+        }
+
+        return file;
+      };
       const baseFlowInput: Partial<GenerateProductViewInput> = { 
-        ...data, 
+        productCategory: data.productCategory,
+        gender: data.gender,
+        sleeveType: data.sleeveType,
+        fabricType: data.fabricType,
+        color: data.color,
+        pattern: data.pattern,
+        fitType: data.fitType,
+        materialStretch: data.materialStretch,
+        fragranceName: data.fragranceName,
+        fragranceFamily: data.fragranceFamily,
+        sizeMl: data.sizeMl,
       };
 
       if (data.productCategory === 'Trousers') {
         const [frontUri, fabricUri, backUri] = await Promise.all([
-          fileToDataUri(data.productImageFront[0]),
-          fileToDataUri(data.productImageFabric[0]),
-          fileToDataUri(data.productImageBack[0]),
+          fileToDataUri(getUploadedFile(data.productImageFront, 'Front view image')),
+          fileToDataUri(getUploadedFile(data.productImageFabric, 'Fabric close-up image')),
+          fileToDataUri(getUploadedFile(data.productImageBack, 'Back view image')),
         ]);
         uris.front = frontUri;
         uris.fabric = fabricUri;
@@ -89,9 +111,9 @@ export default function Home() {
         baseFlowInput.productImageBack = backUri;
       } else if (data.productCategory === 'Perfume') {
         const [bottleUri, boxFrontUri, boxBackUri] = await Promise.all([
-            fileToDataUri(data.bottleImageFile[0]),
-            fileToDataUri(data.boxFrontImageFile[0]),
-            fileToDataUri(data.boxBackImageFile[0]),
+            fileToDataUri(getUploadedFile(data.bottleImageFile, 'Perfume bottle image')),
+            fileToDataUri(getUploadedFile(data.boxFrontImageFile, 'Perfume box front image')),
+            fileToDataUri(getUploadedFile(data.boxBackImageFile, 'Perfume box back image')),
         ]);
         uris.bottle = bottleUri;
         uris.boxFront = boxFrontUri;
@@ -100,7 +122,7 @@ export default function Home() {
         baseFlowInput.boxFrontImageUri = boxFrontUri;
         baseFlowInput.boxBackImageUri = boxBackUri;
       } else {
-        const imageUri = await fileToDataUri(data.productImage[0]);
+        const imageUri = await fileToDataUri(getUploadedFile(data.productImage, 'Product image'));
         uris.main = imageUri;
         baseFlowInput.productImage = imageUri;
       }
@@ -237,13 +259,9 @@ export default function Home() {
     setGenerating((prev) => ({ ...prev, frontView: true }));
     try {
       const flowInput = getFlowInputForRegen();
-      const result = flowInput.productCategory === 'Perfume'
-        ? await generatePerfumeBottleFront(flowInput)
-        : await generateFrontView(flowInput);
-      
       const newResult = flowInput.productCategory === 'Perfume'
-        ? { frontView: (result as any).perfumeBottleFront }
-        : { frontView: (result as any).frontView };
+        ? { frontView: (await generatePerfumeBottleFront(flowInput)).perfumeBottleFront }
+        : { frontView: (await generateFrontView(flowInput)).frontView };
 
       setResults((prev) => (prev ? { ...prev, ...newResult } : null));
        toast({ title: "Front View Regenerated", description: "The front view image has been updated." });
@@ -260,13 +278,9 @@ export default function Home() {
     setGenerating((prev) => ({ ...prev, sideView: true }));
     try {
       const flowInput = getFlowInputForRegen();
-       const result = flowInput.productCategory === 'Perfume'
-        ? await generatePerfumeBoxFront(flowInput)
-        : await generateSideView(flowInput);
-
       const newResult = flowInput.productCategory === 'Perfume'
-        ? { sideView: (result as any).perfumeBoxFront }
-        : { sideView: (result as any).sideView };
+        ? { sideView: (await generatePerfumeBoxFront(flowInput)).perfumeBoxFront }
+        : { sideView: (await generateSideView(flowInput)).sideView };
 
       setResults((prev) => (prev ? { ...prev, ...newResult } : null));
        toast({ title: "Side View Regenerated", description: "The image has been updated." });
@@ -283,13 +297,9 @@ export default function Home() {
     setGenerating((prev) => ({ ...prev, backView: true }));
     try {
       const flowInput = getFlowInputForRegen();
-      const result = flowInput.productCategory === 'Perfume'
-        ? await generatePerfumeBoxBack(flowInput)
-        : await generateBackView(flowInput);
-      
       const newResult = flowInput.productCategory === 'Perfume'
-        ? { backView: (result as any).perfumeBoxBack }
-        : { backView: (result as any).backView };
+        ? { backView: (await generatePerfumeBoxBack(flowInput)).perfumeBoxBack }
+        : { backView: (await generateBackView(flowInput)).backView };
       
       setResults((prev) => (prev ? { ...prev, ...newResult } : null));
        toast({ title: "Back View Regenerated", description: "The back view image has been updated." });
@@ -355,33 +365,35 @@ export default function Home() {
     }
   };
 
+  const studioContent = (
+    <StudioWorkspace
+      formPanel={<ProductForm form={form} onSubmit={onSubmit} isLoading={generating.all} />}
+      resultsPanel={
+        <ResultsDisplay
+          results={results}
+          loadingState={generating}
+          onRegenerateFrontView={handleRegenerateFrontView}
+          onRegenerateSideView={handleRegenerateSideView}
+          onRegenerateBackView={handleRegenerateBackView}
+          onRegenerateTextureView={handleRegenerateTextureView}
+          onRegenerateFlatlay={handleRegenerateFlatlay}
+          onRegenerateHeroView={handleRegenerateHeroView}
+        />
+      }
+    />
+  );
+
+  const renderSection = () => {
+    if (activeSection === 'studio' || activeSection === 'generate') {
+      return studioContent;
+    }
+
+    return <PlaceholderSection section={activeSection} />;
+  };
+
   return (
-    <div className="min-h-screen flex flex-col bg-background font-sans">
-      <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 md:px-6">
-        <div className="flex items-center gap-2">
-          <MittyLogo className="h-8 w-8 text-primary" />
-          <h1 className="text-xl font-semibold text-foreground">MITTY Virtual Studio</h1>
-        </div>
-      </header>
-      <main className="flex-1">
-        <div className="grid md:grid-cols-[400px_1fr] lg:grid-cols-[450px_1fr]">
-          <div className="relative flex h-full min-h-[calc(100vh_-_4rem)] flex-col border-r">
-             <ProductForm form={form} onSubmit={onSubmit} isLoading={generating.all} />
-          </div>
-          <div className="flex flex-col">
-            <ResultsDisplay 
-              results={results} 
-              loadingState={generating}
-              onRegenerateFrontView={handleRegenerateFrontView}
-              onRegenerateSideView={handleRegenerateSideView}
-              onRegenerateBackView={handleRegenerateBackView}
-              onRegenerateTextureView={handleRegenerateTextureView}
-              onRegenerateFlatlay={handleRegenerateFlatlay}
-              onRegenerateHeroView={handleRegenerateHeroView}
-            />
-          </div>
-        </div>
-      </main>
-    </div>
+    <AppShell activeSection={activeSection} onSectionChange={setActiveSection}>
+      {renderSection()}
+    </AppShell>
   );
 }

@@ -1,15 +1,14 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2 } from 'lucide-react';
 import type { UseFormReturn } from 'react-hook-form';
 import { useWatch } from 'react-hook-form';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { productFormSchema, type ProductFormValues } from '@/lib/types';
+import type { ProductFormValues } from '@/lib/types';
 import { FileUpload } from './file-upload';
 
 interface ProductFormProps {
@@ -23,9 +22,24 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
-        <ScrollArea className="flex-1">
-          <div className="space-y-6 p-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col">
+        <div className="border-b border-black/10 p-4 sm:p-5">
+          <Badge variant="outline" className="border-[#d8c39b] bg-[#fff8ea] text-[#8a6635]">
+            Step 1
+          </Badge>
+          <h2 className="mt-3 text-xl font-semibold text-[#171717]">Product Upload</h2>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            Choose the product type, add key details, and upload the reference images.
+          </p>
+        </div>
+        <div className="space-y-6 p-4 sm:p-5">
+            <section className="space-y-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8a6635]">
+                  Category
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">Select the generation recipe.</p>
+              </div>
             <FormField
               control={form.control}
               name="productCategory"
@@ -48,6 +62,15 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                 </FormItem>
               )}
             />
+            </section>
+
+            <section className="space-y-4 rounded-lg border border-black/10 bg-[#fbf8f1] p-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8a6635]">
+                  Product Details
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">These fields guide the AI output and SEO copy.</p>
+              </div>
             {productCategory !== 'Perfume' && (
               <FormField
                 control={form.control}
@@ -234,6 +257,15 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                 )}
               />
              )}
+            </section>
+
+            <section className="space-y-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8a6635]">
+                  Reference Uploads
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">Use clear product images for better output accuracy.</p>
+              </div>
             {(productCategory === 'Shirt' || productCategory === 'Shoes' || productCategory === 'Jeans') && (
               <FormField
                 control={form.control}
@@ -247,7 +279,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
               />
             )}
              {productCategory === 'Trousers' && (
-              <div className="space-y-4 rounded-lg border p-4">
+              <div className="space-y-4 rounded-lg border border-black/10 bg-white p-4">
                  <h3 className="text-sm font-medium text-foreground">Trouser Images</h3>
                 <FormField
                   control={form.control}
@@ -282,7 +314,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
               </div>
             )}
              {productCategory === 'Perfume' && (
-              <div className="space-y-4 rounded-lg border p-4">
+              <div className="space-y-4 rounded-lg border border-black/10 bg-white p-4">
                  <h3 className="text-sm font-medium text-foreground">Perfume Images</h3>
                 <FormField
                   control={form.control}
@@ -316,11 +348,11 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                 />
               </div>
             )}
-          </div>
-        </ScrollArea>
-        <div className="p-6 border-t bg-background sticky bottom-0">
-          <Button type="submit" disabled={isLoading} className="w-full" size="lg">
-            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Generate'}
+            </section>
+        </div>
+        <div className="border-t border-black/10 bg-white p-4 sm:p-5">
+          <Button type="submit" disabled={isLoading} className="h-12 w-full bg-[#171717] text-white hover:bg-[#2a2a2a]" size="lg">
+            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Generate Assets'}
           </Button>
         </div>
       </form>

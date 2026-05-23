@@ -1,6 +1,6 @@
 'use client';
 
-import { UploadCloud, File as FileIcon, X } from 'lucide-react';
+import { UploadCloud, X } from 'lucide-react';
 import Image from 'next/image';
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
@@ -9,9 +9,18 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { ProductFormValues } from '@/lib/types';
 
+type FileFieldName =
+  | 'productImage'
+  | 'productImageFront'
+  | 'productImageFabric'
+  | 'productImageBack'
+  | 'bottleImageFile'
+  | 'boxFrontImageFile'
+  | 'boxBackImageFile';
+
 interface FileUploadProps {
   form: UseFormReturn<ProductFormValues>;
-  name: keyof ProductFormValues;
+  name: FileFieldName;
 }
 
 export function FileUpload({ form, name }: FileUploadProps) {
@@ -22,7 +31,7 @@ export function FileUpload({ form, name }: FileUploadProps) {
     (acceptedFiles: File[]) => {
       if (acceptedFiles.length > 0) {
         const file = acceptedFiles[0];
-        setValue(name, acceptedFiles as any, { shouldValidate: true });
+        setValue(name, acceptedFiles, { shouldValidate: true });
         const reader = new FileReader();
         reader.onload = () => setPreview(reader.result as string);
         reader.readAsDataURL(file);
@@ -38,7 +47,7 @@ export function FileUpload({ form, name }: FileUploadProps) {
   });
 
   const removeFile = () => {
-    setValue(name, null as any, { shouldValidate: true });
+    setValue(name, null, { shouldValidate: true });
     setPreview(null);
   };
   
@@ -49,8 +58,8 @@ export function FileUpload({ form, name }: FileUploadProps) {
       <div
         {...getRootProps()}
         className={cn(
-          'relative flex h-48 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors',
-          isDragActive ? 'border-primary bg-primary/10' : 'border-input hover:border-primary/50',
+          'relative flex h-48 w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed bg-white transition-colors sm:h-52',
+          isDragActive ? 'border-[#b78d4a] bg-[#fff8ea]' : 'border-black/15 hover:border-[#b78d4a]',
           errorMessage ? 'border-destructive' : ''
         )}
       >
@@ -73,8 +82,10 @@ export function FileUpload({ form, name }: FileUploadProps) {
           </>
         ) : (
           <div className="flex flex-col items-center gap-2 text-muted-foreground text-center p-4">
-            <UploadCloud className="h-10 w-10" />
-            <p className="font-semibold">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#171717] text-[#f4d99f]">
+              <UploadCloud className="h-6 w-6" />
+            </div>
+            <p className="font-semibold text-[#171717]">
               {isDragActive ? 'Drop the file here' : 'Drag & drop image or click to upload'}
             </p>
             <p className="text-xs">PNG, JPG, WEBP up to 5MB</p>

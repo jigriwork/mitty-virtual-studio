@@ -1,7 +1,6 @@
 
 'use client';
 
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -137,7 +136,7 @@ export default function ReportPage() {
   const formatContent = (text: string) => {
     return text
       .split('---')
-      .map((section, i) => `<hr class="my-6 border-border" />${section}`)
+      .map((section) => `<hr class="my-6 border-border" />${section}`)
       .join('')
       .replace(/^<hr.*?>/, '') // remove first hr
       .replace(/####\s(.*?)\n/g, '<h4 class="text-lg font-semibold mt-6 mb-2">$1</h4>')

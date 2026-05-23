@@ -12,6 +12,8 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { type GenerateProductViewInput, GenerateProductViewInputSchema } from './types';
 
+type PromptMedia = {media: {url: string}};
+
 const GenerateSideViewOutputSchema = z.object({
   sideView: z.string().describe("A photorealistic image of the product's side view, as a data URI."),
 });
@@ -29,7 +31,7 @@ const generateSideViewFlow = ai.defineFlow(
   },
   async (input) => {
     let promptText = '';
-    let promptMedia: any[] = [];
+    let promptMedia: PromptMedia[] = [];
 
     if (input.productCategory === 'Shoes') {
       const material = input.fabricType;
