@@ -15,20 +15,31 @@
 - `src/lib/types.ts`: Reuse the Zod schemas for the database types.
 
 ## 4. DATABASE SCHEMA (Proposed)
+
 ### `products`
-- `id` (uuid)
+- `id` (uuid, primary key)
 - `created_at` (timestamp)
-- `user_id` (uuid -> profiles.id)
+- `user_id` (uuid, references profiles.id)
 - `category` (text)
 - `metadata` (jsonb: fabric, fit, color, etc.)
 - `status` (text: pending/generating/completed)
 
 ### `assets`
-- `id` (uuid)
-- `product_id` (uuid)
+- `id` (uuid, primary key)
+- `product_id` (uuid, references products.id)
 - `url` (text)
 - `type` (text: original/generated)
 - `view` (text: front/side/back/flatlay)
+
+### `seo_metadata`
+- `id` (uuid, primary key)
+- `product_id` (uuid, references products.id)
+- `title` (text)
+- `description` (text)
+- `slug` (text)
+- `meta_description` (text)
+- `alt_text` (text)
+- `bullet_features` (jsonb)
 
 ## 5. STORAGE BUCKET DESIGN
 - `product-assets/`
@@ -46,8 +57,16 @@
 - **URL Availability:** Imagen 2 needs public or short-lived signed URLs to access the images. 
 - **Timeout:** Next.js Server Actions have a 60s limit. Parallelize AI calls or use a queue.
 
-## 8. VERDICT
-- **Can we move to Supabase?** Yes, it is the cleanest path forward.
+## 8. FILE-BY-FILE MIGRATION PLAN
+- `src/lib/supabase.ts`: New client initialization.
+- `src/app/api/upload/route.ts`: Handler for file uploads to storage.
+- `src/services/product-service.ts`: DB operations for products and metadata.
+- `src/app/page.tsx`: Refactor `onSubmit` to use Storage URLs.
+- `src/middleware.ts`: Add Next.js middleware for Auth protection.
+
+## 9. FINAL VERDICT
+- **Is Firebase currently required?** No.
+- **Can we safely move to Supabase?** Yes, it is the cleanest path forward.
 - **Safest Order:** 
   1. Setup Supabase Client.
   2. Implement Image Upload -> Storage.
