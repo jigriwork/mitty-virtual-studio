@@ -48,9 +48,11 @@ export function buildStudioConsistencyInstructions(input: GenerateProductViewInp
 
   return [
     `Output Background Style: ${style}. Use a ${background}.`,
-    'Background consistency: use the same clean ecommerce studio background across front, side, back, and flatlay images.',
-    'Do not randomly switch between grey, beige, brown, outdoor, lifestyle, room, or textured backgrounds.',
-    'Keep lighting consistent across front, side, and back.',
+    'Background consistency lock: front, side, back, and flatlay must feel like one ecommerce studio shoot.',
+    'Use the same clean studio background style, same camera quality, same exposure, and same soft even lighting across all generated views.',
+    'Do not randomly switch between grey, beige, brown, outdoor, lifestyle, room, table, wall, floor, or textured backgrounds.',
+    'Default to clean light grey studio unless the selected Output Background Style says otherwise.',
+    'Keep lighting consistent across front, side, back, and flatlay. Avoid dramatic lighting, warm color casts, uneven shadows, or background color shifts.',
     'Color consistency: preserve the same product color across all views. Do not make lavender more pink, purple, blue, or grey between images.',
     'Use uploaded product/reference images as the color source of truth. If fabric close-up is provided, use it as the true color and fabric finish source.',
     'Model consistency: keep the same model identity across front, side, and back as much as possible: same body type, hairstyle, age, and styling.',
@@ -191,10 +193,15 @@ export function buildProductAccuracyInstructions(input: GenerateProductViewInput
 export function buildFlatlayAccuracyInstructions(input: GenerateProductViewInput) {
   return [
     buildProductAccuracyInstructions(input),
-    'Flatlay/packshot rule: show the product cleanly and preserve shirt color, pocket, collar, buttons, placket, and sleeve type.',
-    'Flatlay quality rule: clean ecommerce top-down product image, evenly lit, no harsh shadows, no human hand, no camera shadow, no phone shadow, no photographer shadow, no reflection shadow, no table clutter, no background objects, no glass reflection, no dark shadow at bottom, no dramatic lighting, no lifestyle background, no mannequin/model body.',
-    'Flatlay composition: product centered and clearly visible on a neutral off-white or light grey background, with consistent color matching the model images.',
-    'For clean ecommerce flatlay, remove distracting packaging if needed, but do not alter the product design.',
-    'Packaging ribbon/tag can appear only if the image is intentionally a retail packshot and it exists in the uploaded product.',
+    'Flatlay Style: Clean Ecommerce Packshot.',
+    'Flatlay/packshot rule: create a premium HD ecommerce product packshot, not a casual phone/table photo.',
+    'Camera and composition: top-down view, product centered, full product visible, straight alignment, high detail, sharp focus, clean edges, realistic proportions.',
+    'Lighting and background: evenly lit on a clean light grey or off-white studio background, matching the selected studio style and the model-view background family.',
+    'Strict no-shadow rule: no harsh shadow, no camera shadow, no phone shadow, no photographer shadow, no hand shadow, no reflection shadow, no dark bottom shadow, no glass reflection, no dramatic lighting, and no uneven vignette.',
+    'Strict clean-scene rule: no human hand, no mannequin/model body, no table clutter, no background objects, no lifestyle background, no room setting, no visible phone/camera reflection.',
+    'Product preservation rule: preserve exact shirt color, pocket, collar, buttons, placket, cuff, sleeve type, pattern, fabric finish, and visible construction details.',
+    'Do not invent a logo, print, stripe, patch, sleeve band, embroidery, label, contrast panel, or new design detail.',
+    'Packaging rule: do not treat packaging ribbon, price tag, hanging tag, retail tape, or black MITTY ribbon/tape as part of the shirt design.',
+    'For a clean ecommerce flatlay, remove distracting packaging, tags, and ribbon if possible, but do not remove actual shirt details like pocket, buttons, collar, cuffs, placket, or pattern.',
   ].join('\n');
 }

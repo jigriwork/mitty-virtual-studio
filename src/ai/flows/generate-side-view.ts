@@ -65,7 +65,7 @@ ${buildProductAccuracyInstructions(input)}`;
 
 ${accuracyInstructions}
 
-The side profile should clearly show sleeve length and ${input.productCategory.toLowerCase()} fit. Sleeves should be worn normally with no folding or rolling. Use clean studio lighting and a soft beige background.
+The side profile should clearly show sleeve length and ${input.productCategory.toLowerCase()} fit. Sleeves should be worn normally with no folding or rolling. Use clean studio lighting and the selected Output Background Style from the accuracy instructions, defaulting to clean light grey studio. Do not switch to beige, brown, outdoor, room, wall, or lifestyle backgrounds unless explicitly selected.
 
 Ensure color accuracy, fabric texture, and button/collar details match the uploaded shirt image. The model must be identical to the front view with same face, hair, and posture to ensure consistency across the product shoot.`;
       promptMedia = input.productCategory === 'Shirt'

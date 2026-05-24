@@ -75,9 +75,9 @@ ${accuracyInstructions}
 
 The model should have a neutral expression, facing forward, with both arms straight and visible. Shirt sleeves must not be folded. The ${input.productCategory.toLowerCase()} should be well-fitted, ironed, and worn with black trousers.
 
-The lighting should be clean and soft, like a professional ecommerce photoshoot. The ${input.productCategory.toLowerCase()} must match the uploaded product exactly — including button color, collar style, and print placement.
+The lighting should be clean and soft, like a professional ecommerce photoshoot. The ${input.productCategory.toLowerCase()} must match the uploaded product exactly, including button color, collar style, and print placement.
 
-Background should be solid beige or light grey. The model’s face must remain the same across all other views.`;
+Background must follow the selected Output Background Style from the accuracy instructions, defaulting to clean light grey studio. Do not switch to beige, brown, outdoor, room, wall, or lifestyle backgrounds unless explicitly selected. The model face must remain the same across all other views.`;
       promptMedia = input.productCategory === 'Shirt'
         ? buildShirtPromptMedia(input)
         : [{media: {url: input.productImage!}}];

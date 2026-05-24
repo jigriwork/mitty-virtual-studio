@@ -76,7 +76,7 @@ ${accuracyInstructions}
 
 The model should face away from the camera, arms naturally at the side. Shirt should fit cleanly with no wrinkles or folds. Sleeves must be worn straight with no rolling or pushing up.
 
-Background should remain the same as front and side views (solid beige). Shirt pattern should continue realistically on the back, matching style and fabric shown in the uploaded image. Model must be identical to other views.`;
+Background must follow the selected Output Background Style from the accuracy instructions, defaulting to clean light grey studio. Do not switch to beige, brown, outdoor, room, wall, or lifestyle backgrounds unless explicitly selected. Shirt pattern should continue realistically on the back, matching style and fabric shown in the uploaded image. Model must be identical to other views.`;
       promptMedia = input.productCategory === 'Shirt'
         ? buildShirtPromptMedia(input)
         : [{media: {url: input.productImage!}}];
