@@ -1,6 +1,7 @@
 'use client';
 
 import { Package, Shirt } from 'lucide-react';
+import { useState } from 'react';
 import JSZip from 'jszip';
 import type { GenerationProgressState, GenerationResults } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ImageCard } from './image-card';
 import { SeoPreviewPanel } from './seo-preview-panel';
 import { GenerationProgressPanel } from './generation-progress-panel';
+import { upscaleToBlob } from '@/lib/image-upscaler';
 
 interface ResultsDisplayProps {
   results: GenerationResults | null;
@@ -43,9 +45,13 @@ export function ResultsDisplay({
   progress,
   onRetryGeneration,
 }: ResultsDisplayProps) {
+  const [zipping, setZipping] = useState(false);
   
   const handleDownloadAll = async () => {
     if (!results) return;
+    setZipping(true);
+
+    try {
 
     const zip = new JSZip();
     const {
@@ -89,28 +95,34 @@ export function ResultsDisplay({
       zipFileName = `${baseImageName}.zip`;
     }
 
-    const addImageToZip = (dataUri: string, filename: string) => {
-      const base64 = dataUri.split(',')[1];
-      zip.file(filename, base64, { base64: true });
+    const addImageToZip = async (dataUri: string, filename: string) => {
+      try {
+        const blob = await upscaleToBlob(dataUri);
+        zip.file(filename, blob);
+      } catch {
+        // Fallback: use original data if upscale fails
+        const base64 = dataUri.split(',')[1];
+        zip.file(filename, base64, { base64: true });
+      }
     };
 
     if (isPerfume) {
-        if(frontView) addImageToZip(frontView, `${baseImageName} - Bottle Front.png`);
-        if(sideView) addImageToZip(sideView, `${baseImageName} - Box Front.png`);
-        if(backView) addImageToZip(backView, `${baseImageName} - Box Back.png`);
-        if(heroView) addImageToZip(heroView, `${baseImageName} - Hero View.png`);
+        if(frontView) await addImageToZip(frontView, `${baseImageName} - Bottle Front.png`);
+        if(sideView) await addImageToZip(sideView, `${baseImageName} - Box Front.png`);
+        if(backView) await addImageToZip(backView, `${baseImageName} - Box Back.png`);
+        if(heroView) await addImageToZip(heroView, `${baseImageName} - Hero View.png`);
     } else {
-        if(frontView) addImageToZip(frontView, `${baseImageName} - Front.png`);
-        if(backView) addImageToZip(backView, `${baseImageName} - Back.png`);
+        if(frontView) await addImageToZip(frontView, `${baseImageName} - Front.png`);
+        if(backView) await addImageToZip(backView, `${baseImageName} - Back.png`);
 
         if (isTrousers && textureView) {
-            addImageToZip(textureView, `${baseImageName} - Texture.png`);
+            await addImageToZip(textureView, `${baseImageName} - Texture.png`);
         }
         if (sideView && !isTrousers) {
-            addImageToZip(sideView, `${baseImageName} - Side.png`);
+            await addImageToZip(sideView, `${baseImageName} - Side.png`);
         }
         if (hdFlatlayImage) {
-            addImageToZip(hdFlatlayImage, `${baseImageName} - ${isShoes ? 'Top' : 'Flat Lay'}.png`);
+            await addImageToZip(hdFlatlayImage, `${baseImageName} - ${isShoes ? 'Top' : 'Flat Lay'}.png`);
         }
     }
     
@@ -137,6 +149,9 @@ export function ResultsDisplay({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    } finally {
+      setZipping(false);
+    }
   };
   
   if (!results) {
@@ -197,9 +212,9 @@ export function ResultsDisplay({
             Regenerate individual views, download single assets, or export the full product pack.
           </p>
         </div>
-        <Button onClick={handleDownloadAll} size="lg" disabled={!productTitle || loadingState.all} className="h-11 bg-[#171717] text-white hover:bg-[#2a2a2a]">
+        <Button onClick={() => void handleDownloadAll()} size="lg" disabled={!productTitle || loadingState.all || zipping} className="h-11 bg-[#171717] text-white hover:bg-[#2a2a2a]">
             <Package className="mr-2 h-5 w-5" />
-            Download All (.zip)
+            {zipping ? 'Upscaling to HD…' : 'Download All (.zip)'}
         </Button>
       </div>
 

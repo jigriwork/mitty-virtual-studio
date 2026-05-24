@@ -1,11 +1,13 @@
 'use client';
 
 import { Download, Loader2, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { upscaleForDownload } from '@/lib/image-upscaler';
 
 interface ImageCardProps {
   title: string;
@@ -17,13 +19,30 @@ interface ImageCardProps {
 }
 
 export function ImageCard({ title, imageSrc, isLoading, onRegenerate, fileName, badge }: ImageCardProps) {
-  const handleDownload = () => {
-    const link = document.createElement('a');
-    link.href = imageSrc;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      // Upscale to HD (2048px) before download for e-commerce quality.
+      const hdUri = await upscaleForDownload(imageSrc);
+      const link = document.createElement('a');
+      link.href = hdUri;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch {
+      // Fallback — download original if upscale fails.
+      const link = document.createElement('a');
+      link.href = imageSrc;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } finally {
+      setDownloading(false);
+    }
   };
   
   return (
@@ -59,11 +78,15 @@ export function ImageCard({ title, imageSrc, isLoading, onRegenerate, fileName, 
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={handleDownload} disabled={isLoading}>
-                <Download className="h-4 w-4" />
+              <Button variant="ghost" size="icon" onClick={() => void handleDownload()} disabled={isLoading || downloading}>
+                {downloading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
               </Button>
             </TooltipTrigger>
-            <TooltipContent><p>Download</p></TooltipContent>
+            <TooltipContent><p>{downloading ? 'Upscaling to HD…' : 'Download HD'}</p></TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </CardFooter>
