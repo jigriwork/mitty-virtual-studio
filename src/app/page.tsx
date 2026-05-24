@@ -20,9 +20,16 @@ import { ProductForm } from '@/components/product-form';
 import { ResultsDisplay } from '@/components/results-display';
 import { StudioWorkspace } from '@/components/studio-workspace';
 import { useToast } from '@/hooks/use-toast';
-import type { GenerationResults, ProductFormValues } from '@/lib/types';
+import type {
+  GenerationProgressState,
+  GenerationProgressStep,
+  GenerationResults,
+  ProductFormValues,
+  SeoContentPack,
+} from '@/lib/types';
 import { productFormSchema } from '@/lib/types';
 import { fileToDataUri } from '@/lib/utils';
+import { getSafeGenerationErrorMessage } from '@/lib/ai-error-message';
 import type { GenerateProductViewInput } from '@/ai/flows/types';
 
 type GeneratingState = {
@@ -35,10 +42,102 @@ type GeneratingState = {
   heroView: boolean;
 };
 
+type ProductCategory = ProductFormValues['productCategory'];
+
+const progressBands = [0, 10, 20, 40, 60, 80, 100];
+
+const imageStepIdsByCategory: Record<ProductCategory, string[]> = {
+  Shirt: ['front', 'side', 'back', 'flatlay'],
+  Jeans: ['front', 'side', 'back', 'flatlay'],
+  Shoes: ['front', 'side', 'back', 'flatlay'],
+  Trousers: ['front', 'back', 'texture', 'flatlay'],
+  Perfume: ['front', 'side', 'back', 'hero'],
+};
+
+const getProgressSteps = (category: ProductCategory): GenerationProgressStep[] => {
+  const genericImageLabels = {
+    front: 'Generating front model image',
+    side: 'Generating side/angle image',
+    back: 'Generating back image',
+    flatlay: 'Generating clean flatlay',
+  };
+  const categoryImageLabels: Record<ProductCategory, Record<string, string>> = {
+    Shirt: genericImageLabels,
+    Jeans: genericImageLabels,
+    Shoes: genericImageLabels,
+    Trousers: {
+      front: 'Generating front trouser image',
+      back: 'Generating back trouser image',
+      texture: 'Generating fabric texture close-up',
+      flatlay: 'Generating flatlay',
+    },
+    Perfume: {
+      front: 'Generating bottle front image',
+      side: 'Generating box front image',
+      back: 'Generating box back image',
+      hero: 'Generating hero image',
+    },
+  };
+
+  return [
+    { id: 'prepare', label: 'Preparing reference photos', status: 'pending' },
+    { id: 'details', label: 'Reading product details', status: 'pending' },
+    { id: 'accuracyLock', label: 'Applying product accuracy lock', status: 'pending' },
+    { id: 'studioConsistency', label: 'Applying studio consistency rules', status: 'pending' },
+    { id: 'seo', label: 'Generating SEO pack', status: 'pending' },
+    { id: 'color', label: 'Detecting final product color', status: 'pending' },
+    ...imageStepIdsByCategory[category].map((id) => ({
+      id,
+      label: categoryImageLabels[category][id],
+      status: 'pending' as const,
+    })),
+    { id: 'finalizeSeo', label: 'Finalizing SEO pack', status: 'pending' },
+    { id: 'export', label: 'Preparing download/export', status: 'pending' },
+    { id: 'done', label: 'Done', status: 'pending' },
+  ];
+};
+
+const getProgressPercent = (steps: GenerationProgressStep[], status: GenerationProgressState['status']) => {
+  if (status === 'done') {
+    return 100;
+  }
+
+  const completedCount = steps.filter((step) => step.status === 'completed').length;
+  const rawPercent = (completedCount / steps.length) * 100;
+
+  return progressBands.reduce((nearest, band) =>
+    Math.abs(band - rawPercent) < Math.abs(nearest - rawPercent) ? band : nearest
+  );
+};
+
+const createProgressState = (category: ProductCategory): GenerationProgressState => ({
+  status: 'running',
+  percent: 0,
+  startedAt: Date.now(),
+  steps: getProgressSteps(category),
+});
+
+const createSeoOnlyResult = (
+  textResult: SeoContentPack,
+  productCategory: ProductCategory,
+  color: string,
+  fitType?: string
+): GenerationResults => ({
+  ...textResult,
+  productCategory,
+  color,
+  fitType,
+});
+
 export default function Home() {
   const [activeSection, setActiveSection] = useState<AppSection>('studio');
   const [results, setResults] = useState<GenerationResults | null>(null);
   const [productImageUris, setProductImageUris] = useState<{[key:string]: string}>({});
+  const [progress, setProgress] = useState<GenerationProgressState>({
+    status: 'idle',
+    percent: 0,
+    steps: [],
+  });
   const [generating, setGenerating] = useState<GeneratingState>({
     all: false,
     frontView: false,
@@ -61,6 +160,11 @@ export default function Home() {
       sleeveType: 'Full Sleeve',
       fitType: '',
       materialStretch: 'No',
+      frontPocket: 'Auto Detect',
+      patternOverride: 'Auto Detect',
+      collarType: 'Auto Detect',
+      visibleLogo: 'Auto Detect',
+      outputBackgroundStyle: 'Clean Light Grey Studio',
       fragranceName: '',
       fragranceFamily: '',
       sizeMl: '',
@@ -68,9 +172,95 @@ export default function Home() {
   });
 
   const onSubmit = async (data: ProductFormValues) => {
-    setGenerating({ all: true, frontView: true, sideView: true, backView: true, textureView: true, flatlay: true, heroView: true });
-    setResults(null);
+    setGenerating({ all: true, frontView: false, sideView: false, backView: false, textureView: false, flatlay: false, heroView: false });
+    setProgress(createProgressState(data.productCategory));
     setProductImageUris({});
+    let lastStepId = 'prepare';
+    let failedReason: string | undefined;
+
+    const markStepActive = (stepId: string) => {
+      lastStepId = stepId;
+      setProgress((prev) => {
+        const steps = prev.steps.map((step) =>
+          step.id === stepId && step.status === 'pending' ? { ...step, status: 'active' as const } : step
+        );
+
+        return {
+          ...prev,
+          status: 'running',
+          currentStepId: stepId,
+          steps,
+          percent: getProgressPercent(steps, 'running'),
+        };
+      });
+    };
+
+    const markStepCompleted = (stepId: string) => {
+      setProgress((prev) => {
+        const steps = prev.steps.map((step) =>
+          step.id === stepId ? { ...step, status: 'completed' as const, error: undefined } : step
+        );
+        const isDone = stepId === 'done';
+        const status = isDone ? 'done' : prev.status;
+
+        return {
+          ...prev,
+          status,
+          currentStepId: isDone ? undefined : prev.currentStepId,
+          completedAt: isDone ? Date.now() : prev.completedAt,
+          steps,
+          percent: getProgressPercent(steps, status),
+        };
+      });
+    };
+
+    const markStepFailed = (stepId: string, error: unknown) => {
+      const reason = getSafeGenerationErrorMessage(error);
+      failedReason = reason;
+
+      setProgress((prev) => {
+        const steps = prev.steps.map((step) =>
+          step.id === stepId ? { ...step, status: 'failed' as const, error: reason } : step
+        );
+
+        return {
+          ...prev,
+          status: 'failed',
+          currentStepId: undefined,
+          failedStepId: stepId,
+          failedReason: reason,
+          completedAt: Date.now(),
+          steps,
+          percent: getProgressPercent(steps, 'failed'),
+        };
+      });
+
+      return reason;
+    };
+
+    const runImageStep = async <T,>(
+      stepId: string,
+      viewKey: keyof Pick<
+        GenerationResults,
+        'frontView' | 'sideView' | 'backView' | 'textureView' | 'hdFlatlayImage' | 'heroView'
+      >,
+      task: Promise<T>,
+      getImage: (result: T) => string
+    ) => {
+      markStepActive(stepId);
+
+      try {
+        const result = await task;
+        const image = getImage(result);
+
+        setResults((prev) => (prev ? { ...prev, [viewKey]: image } : prev));
+        markStepCompleted(stepId);
+        return image;
+      } catch (error) {
+        markStepFailed(stepId, error);
+        throw error;
+      }
+    };
     
     try {
       const uris: {[key: string]: string} = {};
@@ -83,6 +273,8 @@ export default function Home() {
 
         return file;
       };
+
+      markStepActive('prepare');
       const baseFlowInput: Partial<GenerateProductViewInput> = { 
         productCategory: data.productCategory,
         gender: data.gender,
@@ -90,6 +282,11 @@ export default function Home() {
         fabricType: data.fabricType,
         color: data.color,
         pattern: data.pattern,
+        frontPocket: data.frontPocket,
+        patternOverride: data.patternOverride,
+        collarType: data.collarType,
+        visibleLogo: data.visibleLogo,
+        outputBackgroundStyle: data.outputBackgroundStyle,
         fitType: data.fitType,
         materialStretch: data.materialStretch,
         fragranceName: data.fragranceName,
@@ -121,16 +318,61 @@ export default function Home() {
         baseFlowInput.bottleImageUri = bottleUri;
         baseFlowInput.boxFrontImageUri = boxFrontUri;
         baseFlowInput.boxBackImageUri = boxBackUri;
+      } else if (data.productCategory === 'Shirt') {
+        const imageUri = await fileToDataUri(getUploadedFile(data.productImage, 'Main product photo'));
+        uris.main = imageUri;
+        baseFlowInput.productImage = imageUri;
+        baseFlowInput.mainProductImage = imageUri;
+
+        const optionalReferenceFields = [
+          ['open', 'openShirtImage'],
+          ['fabricCloseup', 'fabricCloseupImage'],
+          ['collarButton', 'collarButtonCloseupImage'],
+          ['pocketLogoDetail', 'pocketLogoDetailImage'],
+          ['shirtBack', 'backSideImage'],
+        ] as const;
+
+        await Promise.all(optionalReferenceFields.map(async ([uriKey, fieldName]) => {
+          const file = data[fieldName]?.[0];
+
+          if (!file) {
+            return;
+          }
+
+          const uri = await fileToDataUri(file);
+          uris[uriKey] = uri;
+          baseFlowInput[fieldName] = uri;
+        }));
       } else {
         const imageUri = await fileToDataUri(getUploadedFile(data.productImage, 'Product image'));
         uris.main = imageUri;
         baseFlowInput.productImage = imageUri;
       }
       setProductImageUris(uris);
+      markStepCompleted('prepare');
+      markStepActive('details');
+      markStepCompleted('details');
+      markStepActive('accuracyLock');
+      markStepCompleted('accuracyLock');
+      markStepActive('studioConsistency');
+      markStepCompleted('studioConsistency');
 
       // First, generate text and detect color
+      markStepActive('seo');
       const textResult = await generateProductTitleDescription(baseFlowInput as GenerateProductViewInput);
+      markStepCompleted('seo');
+      markStepActive('color');
       const detectedColor = textResult.detectedColor;
+      markStepCompleted('color');
+
+      setResults(
+        createSeoOnlyResult(
+          textResult,
+          data.productCategory,
+          detectedColor,
+          data.fitType
+        )
+      );
 
       // Now prepare the input for image generation using the detected color
       const imageFlowInput: GenerateProductViewInput = {
@@ -140,89 +382,45 @@ export default function Home() {
 
 
       if (data.productCategory === 'Trousers') {
-        const [frontResult, backResult, textureResult, flatlayResult] = await Promise.all([
-          generateFrontView(imageFlowInput),
-          generateBackView(imageFlowInput),
-          generateTextureView(imageFlowInput),
-          generateHdFlatlay(imageFlowInput),
+        setGenerating((prev) => ({ ...prev, frontView: true, backView: true, textureView: true, flatlay: true }));
+        await Promise.all([
+          runImageStep('front', 'frontView', generateFrontView(imageFlowInput), (result) => result.frontView),
+          runImageStep('back', 'backView', generateBackView(imageFlowInput), (result) => result.backView),
+          runImageStep('texture', 'textureView', generateTextureView(imageFlowInput), (result) => result.textureView),
+          runImageStep('flatlay', 'hdFlatlayImage', generateHdFlatlay(imageFlowInput), (result) => result.hdFlatlayImage),
         ]);
-        
-        setResults({
-          frontView: frontResult.frontView,
-          backView: backResult.backView,
-          textureView: textureResult.textureView,
-          hdFlatlayImage: flatlayResult.hdFlatlayImage,
-          productTitle: textResult.productTitle,
-          productDescription: textResult.productDescription,
-          productCategory: data.productCategory,
-          color: detectedColor,
-          fitType: data.fitType,
-        });
 
       } else if (data.productCategory === 'Perfume') {
-        // Individual calls with error handling for each
-        let bottleFront = '', boxFront = '', boxBack = '', hero = '';
-        
-        try {
-           const res = await generatePerfumeBottleFront(imageFlowInput);
-           bottleFront = res.perfumeBottleFront;
-        } catch (e) { console.error("Bottle Front Failed", e); }
-
-        try {
-           const res = await generatePerfumeBoxFront(imageFlowInput);
-           boxFront = res.perfumeBoxFront;
-        } catch (e) { console.error("Box Front Failed", e); }
-
-        try {
-           const res = await generatePerfumeBoxBack(imageFlowInput);
-           boxBack = res.perfumeBoxBack;
-        } catch (e) { console.error("Box Back Failed", e); }
-
-        try {
-           const res = await generatePerfumeHeroView(imageFlowInput);
-           hero = res.perfumeHeroView;
-        } catch (e) { console.error("Hero View Failed", e); }
-
-        if (!bottleFront && !boxFront && !boxBack && !hero) {
-            throw new Error("All perfume image generations failed.");
-        }
-
-        setResults({
-            frontView: bottleFront, 
-            sideView: boxFront,       
-            backView: boxBack,         
-            heroView: hero,           
-            productTitle: textResult.productTitle,
-            productDescription: textResult.productDescription,
-            productCategory: data.productCategory,
-            color: detectedColor,
-        });
-      } else {
-        const [frontResult, sideResult, backResult, flatlayResult] = await Promise.all([
-          generateFrontView(imageFlowInput),
-          generateSideView(imageFlowInput),
-          generateBackView(imageFlowInput),
-          generateHdFlatlay(imageFlowInput),
+        setGenerating((prev) => ({ ...prev, frontView: true, sideView: true, backView: true, heroView: true }));
+        await Promise.all([
+          runImageStep('front', 'frontView', generatePerfumeBottleFront(imageFlowInput), (result) => result.perfumeBottleFront),
+          runImageStep('side', 'sideView', generatePerfumeBoxFront(imageFlowInput), (result) => result.perfumeBoxFront),
+          runImageStep('back', 'backView', generatePerfumeBoxBack(imageFlowInput), (result) => result.perfumeBoxBack),
+          runImageStep('hero', 'heroView', generatePerfumeHeroView(imageFlowInput), (result) => result.perfumeHeroView),
         ]);
-        
-        setResults({
-          frontView: frontResult.frontView,
-          sideView: sideResult.sideView,
-          backView: backResult.backView,
-          hdFlatlayImage: flatlayResult.hdFlatlayImage,
-          productTitle: textResult.productTitle,
-          productDescription: textResult.productDescription,
-          productCategory: data.productCategory,
-          color: detectedColor,
-        });
+      } else {
+        setGenerating((prev) => ({ ...prev, frontView: true, sideView: true, backView: true, flatlay: true }));
+        await Promise.all([
+          runImageStep('front', 'frontView', generateFrontView(imageFlowInput), (result) => result.frontView),
+          runImageStep('side', 'sideView', generateSideView(imageFlowInput), (result) => result.sideView),
+          runImageStep('back', 'backView', generateBackView(imageFlowInput), (result) => result.backView),
+          runImageStep('flatlay', 'hdFlatlayImage', generateHdFlatlay(imageFlowInput), (result) => result.hdFlatlayImage),
+        ]);
       }
 
+      markStepActive('finalizeSeo');
+      markStepCompleted('finalizeSeo');
+      markStepActive('export');
+      markStepCompleted('export');
+      markStepActive('done');
+      markStepCompleted('done');
     } catch (e) {
       console.error(e);
+      const safeReason = failedReason || markStepFailed(lastStepId, e);
       toast({
         variant: 'destructive',
         title: 'Generation Failed',
-        description: 'An error occurred while generating assets. Please check the console and try again.',
+        description: safeReason,
       });
     } finally {
       setGenerating({ all: false, frontView: false, sideView: false, backView: false, textureView: false, flatlay: false, heroView: false });
@@ -239,11 +437,22 @@ export default function Home() {
       materialStretch: data.materialStretch,
       fabricType: data.fabricType,
       pattern: data.pattern,
+      frontPocket: data.frontPocket,
+      patternOverride: data.patternOverride,
+      collarType: data.collarType,
+      visibleLogo: data.visibleLogo,
+      outputBackgroundStyle: data.outputBackgroundStyle,
       fragranceFamily: data.fragranceFamily,
       fragranceName: data.fragranceName,
       sizeMl: data.sizeMl,
       color: results?.color || data.color,
       productImage: productImageUris.main,
+      mainProductImage: productImageUris.main,
+      openShirtImage: productImageUris.open,
+      fabricCloseupImage: productImageUris.fabricCloseup,
+      collarButtonCloseupImage: productImageUris.collarButton,
+      pocketLogoDetailImage: productImageUris.pocketLogoDetail,
+      backSideImage: productImageUris.shirtBack,
       productImageFront: productImageUris.front,
       productImageFabric: productImageUris.fabric,
       productImageBack: productImageUris.back,
@@ -267,7 +476,7 @@ export default function Home() {
        toast({ title: "Front View Regenerated", description: "The front view image has been updated." });
     } catch (e) {
       console.error(e);
-      toast({ variant: 'destructive', title: 'Regeneration Failed', description: 'Could not regenerate the front view image.' });
+      toast({ variant: 'destructive', title: 'Regeneration Failed', description: getSafeGenerationErrorMessage(e) });
     } finally {
       setGenerating((prev) => ({ ...prev, frontView: false }));
     }
@@ -286,7 +495,7 @@ export default function Home() {
        toast({ title: "Side View Regenerated", description: "The image has been updated." });
     } catch (e) {
       console.error(e);
-      toast({ variant: 'destructive', title: 'Regeneration Failed', description: 'Could not regenerate the image.' });
+      toast({ variant: 'destructive', title: 'Regeneration Failed', description: getSafeGenerationErrorMessage(e) });
     } finally {
       setGenerating((prev) => ({ ...prev, sideView: false }));
     }
@@ -305,7 +514,7 @@ export default function Home() {
        toast({ title: "Back View Regenerated", description: "The back view image has been updated." });
     } catch (e) {
       console.error(e);
-      toast({ variant: 'destructive', title: 'Regeneration Failed', description: 'Could not regenerate the back view image.' });
+      toast({ variant: 'destructive', title: 'Regeneration Failed', description: getSafeGenerationErrorMessage(e) });
     } finally {
       setGenerating((prev) => ({ ...prev, backView: false }));
     }
@@ -320,7 +529,7 @@ export default function Home() {
       toast({ title: "Texture View Regenerated", description: "The texture image has been updated." });
     } catch (e) {
       console.error(e);
-      toast({ variant: 'destructive', title: 'Regeneration Failed', description: 'Could not regenerate the texture view image.' });
+      toast({ variant: 'destructive', title: 'Regeneration Failed', description: getSafeGenerationErrorMessage(e) });
     } finally {
       setGenerating((prev) => ({ ...prev, textureView: false }));
     }
@@ -338,7 +547,7 @@ export default function Home() {
       toast({
         variant: 'destructive',
         title: 'Regeneration Failed',
-        description: 'Could not regenerate the image.',
+        description: getSafeGenerationErrorMessage(e),
       });
     } finally {
       setGenerating((prev) => ({ ...prev, heroView: false }));
@@ -358,7 +567,7 @@ export default function Home() {
       toast({
         variant: 'destructive',
         title: 'Regeneration Failed',
-        description: 'Could not regenerate the image.',
+        description: getSafeGenerationErrorMessage(e),
       });
     } finally {
       setGenerating((prev) => ({ ...prev, flatlay: false }));
@@ -378,6 +587,10 @@ export default function Home() {
           onRegenerateTextureView={handleRegenerateTextureView}
           onRegenerateFlatlay={handleRegenerateFlatlay}
           onRegenerateHeroView={handleRegenerateHeroView}
+          progress={progress}
+          onRetryGeneration={() => {
+            void form.handleSubmit(onSubmit)();
+          }}
         />
       }
     />

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import type { ProductFormValues } from '@/lib/types';
 import { FileUpload } from './file-upload';
 
@@ -157,25 +158,146 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
             )}
             
             {productCategory === 'Shirt' && (
-              <FormField
-                control={form.control}
-                name="sleeveType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Sleeve Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Select sleeve type" /></SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Full Sleeve">Full Sleeve</SelectItem>
-                        <SelectItem value="Half Sleeve">Half Sleeve</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <>
+                <FormField
+                  control={form.control}
+                  name="sleeveType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Sleeve Type</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Select sleeve type" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Full Sleeve">Full Sleeve</SelectItem>
+                          <SelectItem value="Half Sleeve">Half Sleeve</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Accordion type="single" collapsible className="rounded-lg border border-black/10 bg-white px-4">
+                  <AccordionItem value="accuracy-lock" className="border-0">
+                    <AccordionTrigger className="py-4 text-sm font-semibold text-[#171717] hover:no-underline">
+                      Product Accuracy Lock
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-4">
+                      <p className="text-sm leading-6 text-muted-foreground">
+                        Optional controls for pockets, logo visibility, pattern, collar, and studio background. Auto Detect works for most products.
+                      </p>
+                      <FormField
+                        control={form.control}
+                        name="frontPocket"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Front Pocket</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="Auto Detect">Auto Detect</SelectItem>
+                                <SelectItem value="Yes">Yes</SelectItem>
+                                <SelectItem value="No">No</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="patternOverride"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Pattern Override</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="Auto Detect">Auto Detect</SelectItem>
+                                <SelectItem value="Plain">Plain</SelectItem>
+                                <SelectItem value="Printed">Printed</SelectItem>
+                                <SelectItem value="Checked">Checked</SelectItem>
+                                <SelectItem value="Striped">Striped</SelectItem>
+                                <SelectItem value="Textured">Textured</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="collarType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Collar Type</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="Auto Detect">Auto Detect</SelectItem>
+                                <SelectItem value="Spread Collar">Spread Collar</SelectItem>
+                                <SelectItem value="Button Down">Button Down</SelectItem>
+                                <SelectItem value="Mandarin">Mandarin</SelectItem>
+                                <SelectItem value="Cuban/Open Collar">Cuban/Open Collar</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="visibleLogo"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Visible Logo on Worn Shirt</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="Auto Detect">Auto Detect</SelectItem>
+                                <SelectItem value="No visible logo">No visible logo</SelectItem>
+                                <SelectItem value="Small chest logo">Small chest logo</SelectItem>
+                                <SelectItem value="Label/tag only">Label/tag only</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="outputBackgroundStyle"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Output Background Style</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger><SelectValue placeholder="Clean Light Grey Studio" /></SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="Clean Light Grey Studio">Clean Light Grey Studio</SelectItem>
+                                <SelectItem value="Clean Off-White Studio">Clean Off-White Studio</SelectItem>
+                                <SelectItem value="Transparent/Isolated Product Style later">Transparent/Isolated Product Style later</SelectItem>
+                                <SelectItem value="Premium Beige Studio">Premium Beige Studio</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </>
             )}
              {productCategory === 'Trousers' && (
               <>
@@ -266,7 +388,124 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">Use clear product images for better output accuracy.</p>
               </div>
-            {(productCategory === 'Shirt' || productCategory === 'Shoes' || productCategory === 'Jeans') && (
+            {productCategory === 'Shirt' && (
+              <div className="space-y-4 rounded-lg border border-black/10 bg-white p-4">
+                <div>
+                  <h3 className="text-sm font-medium text-foreground">Reference Photos</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">Start with one main photo. More reference photos = better product accuracy.</p>
+                </div>
+                <FormField
+                  control={form.control}
+                  name="productImage"
+                  render={() => (
+                    <FormItem>
+                      <FileUpload
+                        form={form}
+                        name="productImage"
+                        title="Main Photo"
+                        badge="Required"
+                        helperText="Folded shirt or front product image. This is enough to generate."
+                      />
+                    </FormItem>
+                  )}
+                />
+                <Accordion type="single" collapsible className="rounded-lg border border-black/10 bg-[#fbf8f1] px-4">
+                  <AccordionItem value="more-references" className="border-0">
+                    <AccordionTrigger className="py-4 text-sm font-semibold text-[#171717] hover:no-underline">
+                      Add More Reference Photos
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-4">
+                      <div className="rounded-lg border border-[#d8c39b] bg-[#fff8ea] p-3 text-sm leading-6 text-[#6f562f]">
+                        Use good light. Avoid glass reflection. Keep product flat/open where possible. Capture collar, pocket, and fabric clearly. Avoid covering the product with hand or tag.
+                      </div>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <FormField
+                          control={form.control}
+                          name="openShirtImage"
+                          render={() => (
+                            <FormItem>
+                              <FileUpload
+                                form={form}
+                                name="openShirtImage"
+                                title="Open Shirt"
+                                badge="Improves Accuracy"
+                                helperText="Full shape and sleeve length."
+                                compact
+                              />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="fabricCloseupImage"
+                          render={() => (
+                            <FormItem>
+                              <FileUpload
+                                form={form}
+                                name="fabricCloseupImage"
+                                title="Fabric Detail"
+                                badge="Optional"
+                                helperText="Color, fabric finish, and pattern."
+                                compact
+                              />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="collarButtonCloseupImage"
+                          render={() => (
+                            <FormItem>
+                              <FileUpload
+                                form={form}
+                                name="collarButtonCloseupImage"
+                                title="Collar & Buttons"
+                                badge="Optional"
+                                helperText="Collar, placket, and button color."
+                                compact
+                              />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="pocketLogoDetailImage"
+                          render={() => (
+                            <FormItem>
+                              <FileUpload
+                                form={form}
+                                name="pocketLogoDetailImage"
+                                title="Pocket / Logo"
+                                badge="Optional"
+                                helperText="Pocket, logo, or small detail."
+                                compact
+                              />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="backSideImage"
+                          render={() => (
+                            <FormItem>
+                              <FileUpload
+                                form={form}
+                                name="backSideImage"
+                                title="Back View"
+                                badge="Optional"
+                                helperText="Add if the back view matters."
+                                compact
+                              />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </div>
+            )}
+            {(productCategory === 'Shoes' || productCategory === 'Jeans') && (
               <FormField
                 control={form.control}
                 name="productImage"

@@ -1,14 +1,14 @@
 'use client';
 
-import { Package, Shirt, Sparkles } from 'lucide-react';
+import { Package, Shirt } from 'lucide-react';
 import JSZip from 'jszip';
-import type { GenerationResults } from '@/lib/types';
+import type { GenerationProgressState, GenerationResults } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ImageCard, ImageCardSkeleton } from './image-card';
+import { ImageCard } from './image-card';
 import { SeoPreviewPanel } from './seo-preview-panel';
-import { Skeleton } from './ui/skeleton';
+import { GenerationProgressPanel } from './generation-progress-panel';
 
 interface ResultsDisplayProps {
   results: GenerationResults | null;
@@ -27,6 +27,8 @@ interface ResultsDisplayProps {
   onRegenerateTextureView: () => void;
   onRegenerateFlatlay: () => void;
   onRegenerateHeroView: () => void;
+  progress: GenerationProgressState;
+  onRetryGeneration: () => void;
 }
 
 export function ResultsDisplay({
@@ -38,13 +40,38 @@ export function ResultsDisplay({
   onRegenerateTextureView,
   onRegenerateFlatlay,
   onRegenerateHeroView,
+  progress,
+  onRetryGeneration,
 }: ResultsDisplayProps) {
   
   const handleDownloadAll = async () => {
     if (!results) return;
 
     const zip = new JSZip();
-    const { productTitle, productDescription, frontView, sideView, backView, textureView, hdFlatlayImage, heroView, productCategory, color, fitType } = results;
+    const {
+      seoTitle,
+      productTitle,
+      shortDescription,
+      longDescription,
+      productDescription,
+      bulletFeatures,
+      metaTitle,
+      metaDescription,
+      slug,
+      imageAltTexts,
+      categoryTags,
+      stylingSuggestions,
+      detectedColor,
+      frontView,
+      sideView,
+      backView,
+      textureView,
+      hdFlatlayImage,
+      heroView,
+      productCategory,
+      color,
+      fitType,
+    } = results;
     
     const isTrousers = productCategory === 'Trousers';
     const isShoes = productCategory === 'Shoes';
@@ -87,7 +114,20 @@ export function ResultsDisplay({
         }
     }
     
-    const txtContent = `Product Title: ${productTitle}\n\nProduct Description:\n${productDescription}`;
+    const txtContent = [
+      `SEO Title: ${seoTitle}`,
+      `Product Title: ${productTitle}`,
+      `Short Description: ${shortDescription}`,
+      `Long Description:\n${longDescription || productDescription}`,
+      `Bullet Features:\n${bulletFeatures.map((feature) => `- ${feature}`).join('\n')}`,
+      `Meta Title: ${metaTitle}`,
+      `Meta Description: ${metaDescription}`,
+      `Slug: ${slug}`,
+      `Image Alt Texts:\n${imageAltTexts.map((altText) => `- ${altText}`).join('\n')}`,
+      `Category Tags:\n${categoryTags.map((tag) => `- ${tag}`).join('\n')}`,
+      `Styling Suggestions:\n${stylingSuggestions}`,
+      `Detected Color: ${detectedColor || color || 'N/A'}`,
+    ].join('\n\n');
     zip.file('Product_Info.txt', txtContent);
 
     const zipBlob = await zip.generateAsync({ type: 'blob' });
@@ -99,13 +139,12 @@ export function ResultsDisplay({
     document.body.removeChild(link);
   };
   
-  if (loadingState.all) {
-    return <LoadingSkeleton />;
-  }
-  
   if (!results) {
     return (
       <div className="grid gap-5">
+        {progress.status !== 'idle' && (
+          <GenerationProgressPanel progress={progress} onRetry={onRetryGeneration} />
+        )}
         <Card className="border-black/10 bg-white/80 shadow-sm backdrop-blur">
           <CardContent className="flex min-h-[460px] flex-col items-center justify-center p-8 text-center sm:p-12">
             <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-[#171717] text-[#f4d99f]">
@@ -141,6 +180,10 @@ export function ResultsDisplay({
 
   return (
     <div className="grid gap-5">
+      {progress.status !== 'idle' && progress.status !== 'done' && (
+        <GenerationProgressPanel progress={progress} onRetry={onRetryGeneration} />
+      )}
+
       <div className="flex flex-col gap-4 rounded-lg border border-black/10 bg-white/80 p-4 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -154,7 +197,7 @@ export function ResultsDisplay({
             Regenerate individual views, download single assets, or export the full product pack.
           </p>
         </div>
-        <Button onClick={handleDownloadAll} size="lg" disabled={!productTitle} className="h-11 bg-[#171717] text-white hover:bg-[#2a2a2a]">
+        <Button onClick={handleDownloadAll} size="lg" disabled={!productTitle || loadingState.all} className="h-11 bg-[#171717] text-white hover:bg-[#2a2a2a]">
             <Package className="mr-2 h-5 w-5" />
             Download All (.zip)
         </Button>
@@ -258,31 +301,3 @@ export function ResultsDisplay({
     </div>
   );
 }
-
-const LoadingSkeleton = () => (
-   <div className="grid gap-5">
-      <Card className="border-black/10 bg-white/80 shadow-sm">
-        <CardContent className="p-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#171717] text-[#f4d99f]">
-              <Sparkles className="h-5 w-5 animate-pulse" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-[#171717]">Generating studio assets</h2>
-              <p className="text-sm text-muted-foreground">AI is creating copy and product views.</p>
-            </div>
-          </div>
-          <div className="mt-5 space-y-3">
-            <Skeleton className="h-3 w-full" />
-            <Skeleton className="h-3 w-4/5" />
-          </div>
-        </CardContent>
-      </Card>
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <ImageCardSkeleton />
-        <ImageCardSkeleton />
-        <ImageCardSkeleton />
-        <ImageCardSkeleton />
-      </div>
-    </div>
-);

@@ -11,11 +11,22 @@ export const GenerateProductViewInputSchema = z.object({
   productImage: z.string().optional().describe(
     "A photo of the product (for shirts/shoes), as a data URI."
   ),
+  mainProductImage: z.string().optional().describe('Main product photo for shirts, as a data URI.'),
+  openShirtImage: z.string().optional().describe('Optional full open shirt reference photo, as a data URI.'),
+  fabricCloseupImage: z.string().optional().describe('Optional shirt fabric or pattern close-up, as a data URI.'),
+  collarButtonCloseupImage: z.string().optional().describe('Optional shirt collar and button close-up, as a data URI.'),
+  pocketLogoDetailImage: z.string().optional().describe('Optional shirt pocket, logo, or detail close-up, as a data URI.'),
+  backSideImage: z.string().optional().describe('Optional shirt back side reference photo, as a data URI.'),
   productImageFront: z.string().optional().describe('Front view photo of trousers, as a data URI.'),
   productImageFabric: z.string().optional().describe('Fabric close-up photo of trousers, as a data URI.'),
   productImageBack: z.string().optional().describe('Back view photo of trousers, as a data URI.'),
   color: z.string().optional().describe('The color of the product.'),
   pattern: z.string().optional().describe('The pattern of the product (e.g., Floral, Stripes, Solid).'),
+  frontPocket: z.enum(['Auto Detect', 'Yes', 'No']).optional().describe('Product accuracy lock: whether the shirt has a front pocket.'),
+  patternOverride: z.enum(['Auto Detect', 'Plain', 'Printed', 'Checked', 'Striped', 'Textured']).optional().describe('Product accuracy lock: override for the shirt pattern.'),
+  collarType: z.enum(['Auto Detect', 'Spread Collar', 'Button Down', 'Mandarin', 'Cuban/Open Collar']).optional().describe('Product accuracy lock: shirt collar type.'),
+  visibleLogo: z.enum(['Auto Detect', 'No visible logo', 'Small chest logo', 'Label/tag only']).optional().describe('Product accuracy lock: whether visible logos should appear on the worn shirt.'),
+  outputBackgroundStyle: z.enum(['Clean Light Grey Studio', 'Clean Off-White Studio', 'Transparent/Isolated Product Style later', 'Premium Beige Studio']).optional().describe('Selected studio background style for consistent output.'),
   fitType: z.string().optional().describe('The fit type of the trousers (e.g., Slim, Regular).'),
   materialStretch: z.enum(['Yes', 'No']).optional().describe('Whether the trouser material is stretchable.'),
 

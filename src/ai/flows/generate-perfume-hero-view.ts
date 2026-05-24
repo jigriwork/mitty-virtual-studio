@@ -6,6 +6,8 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { type GenerateProductViewInput, GenerateProductViewInputSchema } from './types';
+import { requireGeneratedImage } from './image-output';
+import { IMAGE_GENERATION_MODEL } from './model-names';
 
 const GeneratePerfumeHeroViewOutputSchema = z.object({
   perfumeHeroView: z.string().describe("A photorealistic hero image of the perfume bottle and box, as a data URI."),
@@ -40,7 +42,7 @@ Ensure both the bottle and box perfectly match the branding, colors, and design 
     if (input.boxFrontImageUri) {
       try {
         const {media} = await ai.generate({
-          model: 'googleai/imagen-2',
+          model: IMAGE_GENERATION_MODEL,
           prompt: [
             {media: {url: input.bottleImageUri}},
             {media: {url: input.boxFrontImageUri}},
@@ -62,7 +64,7 @@ Ensure both the bottle and box perfectly match the branding, colors, and design 
     // Fallback: Use only the bottle image
     const fallbackPrompt = promptText + "\n\nNote: Generating with bottle reference only. Render a matching box behind it.";
     const {media, text} = await ai.generate({
-      model: 'googleai/imagen-2',
+      model: IMAGE_GENERATION_MODEL,
       prompt: [
         {media: {url: input.bottleImageUri}},
         {text: fallbackPrompt}
@@ -76,6 +78,6 @@ Ensure both the bottle and box perfectly match the branding, colors, and design 
       throw new Error(`Failed to generate image. Model output: ${text || 'No text output'}`);
     }
 
-    return {perfumeHeroView: media.url};
+    return {perfumeHeroView: requireGeneratedImage(media, 'Perfume hero generation')};
   }
 );

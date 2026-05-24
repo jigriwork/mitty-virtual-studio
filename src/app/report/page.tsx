@@ -30,8 +30,8 @@ The application is architected as a modern, server-rendered web app that interfa
 *   **Styling:** **Tailwind CSS**. A utility-first CSS framework that enables rapid, custom styling directly within the HTML, configured with a custom theme in \`src/app/globals.css\`.
 *   **State Management & Forms:** **React Hook Form** combined with **Zod** for schema-based validation. This provides a performant and reliable way to manage the main product input form, with validation logic clearly defined in \`src/lib/types.ts\`.
 *   **AI Backend:** **Genkit (with the \`@genkit-ai/googleai\` plugin)**. Genkit acts as the orchestration layer for all AI operations. It defines server-side functions called "flows" (\`ai.defineFlow\`) that structure and execute calls to Google's AI models.
-    *   **Text & Analysis Model:** \`gemini-1.5-flash-latest\` is used for generating product titles and descriptions and for analyzing images to detect color.
-    *   **Image Generation Model:** \`gemini-2.0-flash-preview-image-generation\` is used for all photorealistic image generation tasks.
+    *   **Text & Analysis Model:** \`gemini-2.5-flash\` is used for generating the SEO content pack and for analyzing images to detect color.
+    *   **Image Generation Model:** \`gemini-2.5-flash-image\` is used for photorealistic image generation tasks.
 
 ---
 
@@ -55,7 +55,7 @@ The application's logic is orchestrated from the main page component (\`src/app/
 2.  **Conditional Color Logic:** The prompt for this flow is explicitly instructed:
     *   **If the user provided a color** in the form, the AI **MUST** use that exact color.
     *   **If the user left the color field blank**, the AI must analyze the uploaded image(s) and detect the primary color.
-3.  **Output:** This flow returns the final \`productTitle\`, \`productDescription\`, and the \`detectedColor\`.
+3.  **Output:** This flow returns the final SEO pack, including \`productTitle\`, \`shortDescription\`, \`longDescription\`, \`productDescription\`, \`bulletFeatures\`, \`metaTitle\`, \`metaDescription\`, \`slug\`, \`imageAltTexts\`, \`categoryTags\`, \`stylingSuggestions\`, and \`detectedColor\`.
 
 **Step 3: AI Image Generation (The Parallel AI Calls)**
 
@@ -69,7 +69,7 @@ The application's logic is orchestrated from the main page component (\`src/app/
 
 1.  **State Update:** Once all promises from \`Promise.all()\` resolve, the \`results\` state is updated with all the generated text and image data. The UI switches from the loading state to display the results in the \`ResultsDisplay\` component (\`src/components/results-display.tsx\`).
 2.  **Regeneration (\`handleRegenerate...\` functions):** Each generated image has a "Regenerate" button. Clicking it calls a specific handler (e.g., \`handleRegenerateFrontView\`) which re-runs *only* that single AI image flow and updates the corresponding image in the \`results\` state.
-3.  **Downloading (\`handleDownloadAll\`):** This function uses the \`JSZip\` library. It fetches the Base64 data from each image URI, adds it to a zip archive, includes the product title and description in a \`Product_Info.txt\` file, and then triggers a browser download with a dynamically generated, descriptive filename.
+3.  **Downloading (\`handleDownloadAll\`):** This function uses the \`JSZip\` library. It fetches the Base64 data from each image URI, adds it to a zip archive, includes the full SEO pack in a \`Product_Info.txt\` file, and then triggers a browser download with a dynamically generated, descriptive filename.
 
 ---
 

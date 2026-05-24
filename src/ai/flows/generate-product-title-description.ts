@@ -1,9 +1,9 @@
 'use server';
 
 /**
- * @fileOverview Generates a product title, description, and detects color based on product details and an uploaded image.
+ * @fileOverview Generates an SEO-ready ecommerce content pack and detects color based on product details and uploaded image(s).
  *
- * - generateProductTitleDescription - A function that handles the generation of the product title and description.
+ * - generateProductTitleDescription - A function that handles SEO pack generation.
  * - GenerateProductTitleDescriptionOutput - The return type for the generateProductTitleDescription function.
  */
 
@@ -13,8 +13,18 @@ import { GenerateProductViewInputSchema, type GenerateProductViewInput } from '.
 
 
 const GenerateProductTitleDescriptionOutputSchema = z.object({
+  seoTitle: z.string().describe('A concise SEO-focused product title for ecommerce listing pages.'),
   productTitle: z.string().describe('The generated product title, starting with "Mitty".'),
-  productDescription: z.string().describe('The generated product description, including details about color, fabric, pattern, fit, and ideal occasions.'),
+  shortDescription: z.string().describe('A short one-sentence ecommerce description.'),
+  longDescription: z.string().describe('A polished catalogue-style long description.'),
+  productDescription: z.string().describe('Backward-compatible alias for longDescription. It must exactly match longDescription.'),
+  bulletFeatures: z.array(z.string()).min(4).max(6).describe('Four to six product-aware bullet features.'),
+  metaTitle: z.string().describe('SEO meta title, ideally under 60 characters.'),
+  metaDescription: z.string().describe('SEO meta description, ideally under 160 characters.'),
+  slug: z.string().describe('Lowercase hyphenated URL slug with only letters, numbers, and hyphens.'),
+  imageAltTexts: z.array(z.string()).min(3).max(5).describe('Three to five descriptive image alt texts for generated ecommerce images.'),
+  categoryTags: z.array(z.string()).min(4).max(8).describe('Four to eight lowercase ecommerce category/search tags.'),
+  stylingSuggestions: z.string().describe('A practical styling suggestion for the product.'),
   detectedColor: z.string().describe('The main color of the product. This MUST be the user-provided color if available, otherwise it is detected from the uploaded image(s). For example: "Navy Blue", "Olive Green", "Beige", "Teal".'),
 });
 export type GenerateProductTitleDescriptionOutput = z.infer<typeof GenerateProductTitleDescriptionOutputSchema>;
@@ -25,31 +35,53 @@ export async function generateProductTitleDescription(
   return generateProductTitleDescriptionFlow(input);
 }
 
+const toSlug = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
 const prompt = ai.definePrompt({
   name: 'generateProductTitleDescriptionPrompt',
   input: {schema: GenerateProductViewInputSchema},
   output: {schema: GenerateProductTitleDescriptionOutputSchema},
-  prompt: `You are an expert product description writer for the fashion and lifestyle brand MITTY.
+  prompt: `You are an expert ecommerce catalog writer for MITTY, a premium but simple fashion and lifestyle brand for the Indian market.
 
-  Based on the following product details and image(s), you will:
-  1.  Determine the final color. **If a 'User-provided Color' exists and is not 'N/A', you MUST use that exact value for the color.** Otherwise, you must accurately detect the primary color from the product image(s). Return this final color in the 'detectedColor' field. Be very specific with color names (e.g., "Teal", "Olive Green", "Navy Blue", not just "Blue" or "Green").
-  2.  Generate a product title using the final color.
-  3.  Generate a product description using the final color.
+  Generate a complete SEO-ready content pack from the product details and uploaded image(s). Use natural, professional catalog language. Keep the copy premium and clear, never cheap, exaggerated, or keyword-stuffed.
 
-  The product title MUST always start with "Mitty".
+  Core rules:
+  1. Determine the final color. If User-provided Color exists and is not N/A, use that exact value. Otherwise detect the primary product color from the image(s). Return it in detectedColor using a specific name such as Navy Blue, Olive Green, Beige, Teal, or Purple.
+  2. productTitle MUST start with "Mitty".
+  3. productDescription MUST exactly match longDescription for backward compatibility.
+  4. Use Mitty branding naturally. Do not invent any brand name other than Mitty.
+  5. Do not mention AI, prompts, generated images, discounts, price, sizes, warranty, stock, delivery, or availability.
+  6. Do not claim exact fabric, cotton, premium cotton, breathable fabric, easy care, wrinkle-free finish, stretch, luxury fabric, leather, slim fit, waterproofing, sole technology, or long-lasting perfume performance unless it is explicitly provided in the product details.
+  7. Prefer safe wording such as "designed for", "ideal for", "suitable for", "clean look", "smart styling", "smooth finish", "polished look", "pairs well with", and "gives a refined look".
+  8. Avoid generic repeated phrases. Make the pack specific to the product category, color, pattern, selected fields, and visible details.
+  9. Slug must be lowercase, hyphenated, and based on the productTitle.
+  10. Meta title should be concise. Meta description should be ecommerce-ready and under 160 characters when possible.
 
-  **If the productCategory is 'Trousers':**
-  - The title must be in the format: "Mitty [Detected Color] [Fit Type] [Fabric Type] Formal Trousers for Men"
-  - The description must be in this exact format: "Elevate your formal wardrobe with these [Detected Color] formal trousers from MITTY. Crafted from premium [Fabric Type] fabric, these trousers offer a refined [Fit Type] and [Material Stretch Text]. The mid-rise design with crisp pleats and neat welt pockets makes it an ideal choice for office wear, events, or festive occasions. Pair it with a tucked-in shirt and formal shoes for a sharp, confident look."
-      - For [Material Stretch Text], use "subtle stretch for maximum comfort" if materialStretch is 'Yes', otherwise use "a classic structure for a sharp look".
+  Category-specific guidance:
+  - Shirt: mention full sleeve or half sleeve when selected. Mention color and pattern when provided or visible. Use office wear, smart casual, meetings, dinners, and everyday styling where relevant.
+  - Trousers: mention formal or casual based on the provided type/fit wording. Mention office wear or daily styling based on that type. Avoid exact fabric claims unless fabricType is provided.
+  - Jeans: mention casual wear, street-smart styling, weekend looks, and daily comfort. Avoid exact fit claims unless fitType is provided.
+  - Shoes: mention formal or casual based on the provided material/type clues and image. Mention occasion styling. Avoid sole/material claims unless provided.
+  - Perfume: mention fragrance family and size if provided. If fragranceName is provided, use it. If not, create a tasteful Mitty fragrance name from the family and target audience. Use "Extrait De Parfum" as the perfume type. Avoid medical, attraction, performance, or long-lasting claims unless explicitly provided.
 
-  **If the productCategory is 'Perfume':**
-  - The title must be in the format: "Mitty [Fragrance Name] Extrait De Parfum for [Target]". **If a 'User-provided Fragrance Name' is available, you MUST use it for [Fragrance Name].** Otherwise, invent a creative, suitable fragrance name based on the fragrance family and target audience. The Perfume Type MUST always be "Extrait De Parfum".
-  - The description should be engaging and evoke the scent's character, mentioning the fragrance family, key notes (you can invent 2-3 plausible notes), type ("Extrait De Parfum"), and size.
-
-  **For all other product categories (Shirt, Shoes, etc.):**
-  - The title should include the color/pattern, sleeve/type, and gender. Example: "Mitty Beige Rose Floral Print Full Sleeve Shirt for Men"
-  - The description should include details about the color, fabric, print/pattern type, button/collar details, fit, and ideal occasions.
+  Required output fields:
+  - seoTitle
+  - productTitle
+  - shortDescription
+  - longDescription
+  - productDescription: exactly the same text as longDescription
+  - bulletFeatures: 4 to 6 bullets, no leading hyphens in the strings
+  - metaTitle
+  - metaDescription
+  - slug
+  - imageAltTexts: 3 to 5 alt text strings for front, side/box, back, flatlay/hero images as applicable
+  - categoryTags: 4 to 8 lowercase tags
+  - stylingSuggestions
+  - detectedColor
 
   **Product Details:**
   Product Category: {{{productCategory}}}
@@ -59,6 +91,11 @@ const prompt = ai.definePrompt({
   Gender/Target: {{{gender}}}
   Fabric Type: {{#if fabricType}}{{{fabricType}}}{{else}}N/A{{/if}}
   Pattern: {{#if pattern}}{{{pattern}}}{{else}}N/A{{/if}}
+  Front Pocket: {{#if frontPocket}}{{{frontPocket}}}{{else}}Auto Detect{{/if}}
+  Pattern Override: {{#if patternOverride}}{{{patternOverride}}}{{else}}Auto Detect{{/if}}
+  Collar Type: {{#if collarType}}{{{collarType}}}{{else}}Auto Detect{{/if}}
+  Visible Logo on Worn Shirt: {{#if visibleLogo}}{{{visibleLogo}}}{{else}}Auto Detect{{/if}}
+  Output Background Style: {{#if outputBackgroundStyle}}{{{outputBackgroundStyle}}}{{else}}Clean Light Grey Studio{{/if}}
   User-provided Color: {{#if color}}{{{color}}}{{else}}N/A{{/if}}
 
   {{#if fragranceFamily}}
@@ -70,6 +107,12 @@ const prompt = ai.definePrompt({
   
   **Product Image(s):**
   {{#if productImage}}{{media url=productImage}}{{/if}}
+  {{#if mainProductImage}}{{media url=mainProductImage}}{{/if}}
+  {{#if openShirtImage}}{{media url=openShirtImage}}{{/if}}
+  {{#if fabricCloseupImage}}{{media url=fabricCloseupImage}}{{/if}}
+  {{#if collarButtonCloseupImage}}{{media url=collarButtonCloseupImage}}{{/if}}
+  {{#if pocketLogoDetailImage}}{{media url=pocketLogoDetailImage}}{{/if}}
+  {{#if backSideImage}}{{media url=backSideImage}}{{/if}}
   {{#if productImageFront}}{{media url=productImageFront}}{{/if}}
   {{#if productImageFabric}}{{media url=productImageFabric}}{{/if}}
   {{#if productImageBack}}{{media url=productImageBack}}{{/if}}
@@ -88,6 +131,12 @@ const generateProductTitleDescriptionFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    const seoPack = output!;
+
+    return {
+      ...seoPack,
+      productDescription: seoPack.longDescription,
+      slug: toSlug(seoPack.slug || seoPack.productTitle),
+    };
   }
 );

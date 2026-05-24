@@ -6,6 +6,8 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { type GenerateProductViewInput, GenerateProductViewInputSchema } from './types';
+import { requireGeneratedImage } from './image-output';
+import { IMAGE_GENERATION_MODEL } from './model-names';
 
 const GeneratePerfumeBottleFrontOutputSchema = z.object({
   perfumeBottleFront: z.string().describe("A photorealistic image of the perfume bottle's front view, as a data URI."),
@@ -33,13 +35,13 @@ Lighting should feel luxurious with gentle reflections on the glass. Do not add 
 The final image must match the real product exactly for ecommerce listing.`
 
     const {media} = await ai.generate({
-      model: 'googleai/imagen-2',
+      model: IMAGE_GENERATION_MODEL,
       prompt: [{media: {url: input.bottleImageUri!}}, {text: promptText}],
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },
     });
 
-    return {perfumeBottleFront: media!.url!};
+    return {perfumeBottleFront: requireGeneratedImage(media, 'Perfume bottle front generation')};
   }
 );

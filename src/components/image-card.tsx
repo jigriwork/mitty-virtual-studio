@@ -1,7 +1,6 @@
 'use client';
 
 import { Download, Loader2, RefreshCw } from 'lucide-react';
-import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,7 +42,9 @@ export function ImageCard({ title, imageSrc, isLoading, onRegenerate, fileName, 
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <Image src={imageSrc} alt={title} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
+          // Generated assets are data URIs; a native image avoids Next/Image warnings with huge base64 URLs.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={imageSrc} alt={title} className="h-full w-full object-cover" />
         )}
       </CardContent>
       <CardFooter className="flex justify-end gap-2 bg-[#fbf8f1] p-2">

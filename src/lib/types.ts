@@ -13,9 +13,18 @@ export const productFormSchema = z.object({
   fabricType: z.string().optional(),
   color: z.string().optional(),
   pattern: z.string().optional(),
+  frontPocket: z.enum(['Auto Detect', 'Yes', 'No']).optional(),
+  patternOverride: z.enum(['Auto Detect', 'Plain', 'Printed', 'Checked', 'Striped', 'Textured']).optional(),
+  collarType: z.enum(['Auto Detect', 'Spread Collar', 'Button Down', 'Mandarin', 'Cuban/Open Collar']).optional(),
+  visibleLogo: z.enum(['Auto Detect', 'No visible logo', 'Small chest logo', 'Label/tag only']).optional(),
   fitType: z.string().optional(),
   materialStretch: z.enum(['Yes', 'No']).optional(),
   productImage: z.custom<UploadedFiles>().optional().nullable(),
+  openShirtImage: z.custom<UploadedFiles>().optional().nullable(),
+  fabricCloseupImage: z.custom<UploadedFiles>().optional().nullable(),
+  collarButtonCloseupImage: z.custom<UploadedFiles>().optional().nullable(),
+  pocketLogoDetailImage: z.custom<UploadedFiles>().optional().nullable(),
+  backSideImage: z.custom<UploadedFiles>().optional().nullable(),
   productImageFront: z.custom<UploadedFiles>().optional().nullable(),
   productImageFabric: z.custom<UploadedFiles>().optional().nullable(),
   productImageBack: z.custom<UploadedFiles>().optional().nullable(),
@@ -26,6 +35,7 @@ export const productFormSchema = z.object({
   bottleImageFile: z.custom<UploadedFiles>().optional().nullable(),
   boxFrontImageFile: z.custom<UploadedFiles>().optional().nullable(),
   boxBackImageFile: z.custom<UploadedFiles>().optional().nullable(),
+  outputBackgroundStyle: z.enum(['Clean Light Grey Studio', 'Clean Off-White Studio', 'Transparent/Isolated Product Style later', 'Premium Beige Studio']).optional(),
 
 }).superRefine((data, ctx) => {
     const validateFile = (files: UploadedFiles | null | undefined, path: (string | number)[]) => {
@@ -100,16 +110,63 @@ export const productFormSchema = z.object({
 
 export type ProductFormValues = z.infer<typeof productFormSchema>;
 
+export type SeoContentPack = {
+  seoTitle: string;
+  productTitle: string;
+  shortDescription: string;
+  longDescription: string;
+  productDescription: string;
+  bulletFeatures: string[];
+  metaTitle: string;
+  metaDescription: string;
+  slug: string;
+  imageAltTexts: string[];
+  categoryTags: string[];
+  stylingSuggestions: string;
+  detectedColor: string;
+};
+
 export type GenerationResults = {
-  frontView: string;
+  frontView?: string;
   sideView?: string;
-  backView: string;
+  backView?: string;
   textureView?: string;
   hdFlatlayImage?: string;
   heroView?: string; // For perfume
   productTitle: string;
   productDescription: string;
+  seoTitle: string;
+  shortDescription: string;
+  longDescription: string;
+  bulletFeatures: string[];
+  metaTitle: string;
+  metaDescription: string;
+  slug: string;
+  imageAltTexts: string[];
+  categoryTags: string[];
+  stylingSuggestions: string;
+  detectedColor: string;
   productCategory: 'Shirt' | 'Trousers' | 'Jeans' | 'Shoes' | 'Perfume';
   color?: string;
   fitType?: string;
+};
+
+export type GenerationProgressStepStatus = 'pending' | 'active' | 'completed' | 'failed';
+
+export type GenerationProgressStep = {
+  id: string;
+  label: string;
+  status: GenerationProgressStepStatus;
+  error?: string;
+};
+
+export type GenerationProgressState = {
+  status: 'idle' | 'running' | 'failed' | 'done';
+  percent: number;
+  currentStepId?: string;
+  startedAt?: number;
+  completedAt?: number;
+  failedStepId?: string;
+  failedReason?: string;
+  steps: GenerationProgressStep[];
 };

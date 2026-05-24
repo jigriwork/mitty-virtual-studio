@@ -11,8 +11,20 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { GenerateProductViewInputSchema, type GenerateProductViewInput } from './types';
+import { requireGeneratedImage } from './image-output';
+import { IMAGE_GENERATION_MODEL } from './model-names';
+import { buildFlatlayAccuracyInstructions, buildProductAccuracyInstructions } from './product-accuracy-lock';
 
 type PromptMedia = {media: {url: string}};
+
+const buildShirtPromptMedia = (input: GenerateProductViewInput): PromptMedia[] => [
+  {media: {url: input.mainProductImage || input.productImage!}},
+  ...(input.openShirtImage ? [{media: {url: input.openShirtImage}}] : []),
+  ...(input.fabricCloseupImage ? [{media: {url: input.fabricCloseupImage}}] : []),
+  ...(input.collarButtonCloseupImage ? [{media: {url: input.collarButtonCloseupImage}}] : []),
+  ...(input.pocketLogoDetailImage ? [{media: {url: input.pocketLogoDetailImage}}] : []),
+  ...(input.backSideImage ? [{media: {url: input.backSideImage}}] : []),
+];
 
 const GenerateHdFlatlayOutputSchema = z.object({
   hdFlatlayImage: z
@@ -38,7 +50,9 @@ const generateHdFlatlayFlow = ai.defineFlow(
     let promptMedia: PromptMedia[] = [];
 
     if (input.productCategory === 'Trousers') {
-        promptText = `Generate a clean, high-resolution flat lay image of the ${input.color} formal trousers based on the uploaded product photo. Show them fully spread and neatly arranged, with waistband, belt loops, and front pocket lines visible. Ensure the MITTY tag/logo remains untouched and readable. Use white or beige background with soft shadows and sharp focus. This image will be used directly for ecommerce listing.`;
+        promptText = `Generate a clean, high-resolution flat lay image of the ${input.color} formal trousers based on the uploaded product photo. Show them fully spread and neatly arranged, with waistband, belt loops, and front pocket lines visible. Ensure the MITTY tag/logo remains untouched and readable. Use white or beige background with soft shadows and sharp focus. This image will be used directly for ecommerce listing.
+
+${buildProductAccuracyInstructions(input)}`;
         promptMedia = [
             {media: {url: input.productImageFront!}},
             {media: {url: input.productImageFabric!}},
@@ -48,25 +62,29 @@ const generateHdFlatlayFlow = ai.defineFlow(
         const material = input.fabricType;
         const color = input.color || 'specified';
         const forGender = input.gender === 'Male' ? "men's" : "women's";
-        promptText = `Generate a high-resolution, professional e-commerce studio photograph of a PAIR of ${forGender} formal shoes, viewed from an elevated, angled top-down perspective. The shoes, made of ${color} ${material}, must perfectly match the style of the uploaded image. They should be arranged neatly side-by-side on a solid light grey background (hex #f0f2f5). This view should clearly display the shoe's opening (collar), insole, and the top-down shape of the toe box. Lighting must be soft and diffuse to eliminate harsh shadows and accurately represent the material's color and texture. The image must be exceptionally sharp and clean. Do not add any brand names or logos.`
+        promptText = `Generate a high-resolution, professional e-commerce studio photograph of a PAIR of ${forGender} formal shoes, viewed from an elevated, angled top-down perspective. The shoes, made of ${color} ${material}, must perfectly match the style of the uploaded image. They should be arranged neatly side-by-side on a solid light grey background (hex #f0f2f5). This view should clearly display the shoe's opening (collar), insole, and the top-down shape of the toe box. Lighting must be soft and diffuse to eliminate harsh shadows and accurately represent the material's color and texture. The image must be exceptionally sharp and clean. Do not add any brand names or logos.
+
+${buildProductAccuracyInstructions(input)}`
         promptMedia = [{media: {url: input.productImage!}}];
     } else {
         promptText = `Enhance the uploaded shirt image into a clean, high-resolution flat lay. Retain the exact branding (MITTY logo), button placement, and color tone.
 
+${buildFlatlayAccuracyInstructions(input)}
+
 Improve lighting, remove background shadows, and increase sharpness while preserving fabric texture and print accuracy. Do not alter the shirt's layout, style, or logo.
 
 The result should look studio-shot and realistic — suitable for ecommerce product listing. Keep proportions natural and logo untouched.`
-        promptMedia = [{media: {url: input.productImage!}}];
+        promptMedia = buildShirtPromptMedia(input);
     }
     
     const {media} = await ai.generate({
-      model: 'googleai/gemini-2.0-flash-preview-image-generation',
+      model: IMAGE_GENERATION_MODEL,
       prompt: [ ...promptMedia, { text: promptText } ],
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },
     });
 
-    return {hdFlatlayImage: media!.url!};
+    return {hdFlatlayImage: requireGeneratedImage(media, 'HD flatlay generation')};
   }
 );

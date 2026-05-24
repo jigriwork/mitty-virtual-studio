@@ -6,6 +6,8 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { type GenerateProductViewInput, GenerateProductViewInputSchema } from './types';
+import { requireGeneratedImage } from './image-output';
+import { IMAGE_GENERATION_MODEL } from './model-names';
 
 const GeneratePerfumeBoxBackOutputSchema = z.object({
   perfumeBoxBack: z.string().describe("A photorealistic image of the perfume box's back view, as a data URI."),
@@ -32,13 +34,13 @@ The box must be shot straight-on against the same light background as the front 
 All text should be sharp and readable.`
 
     const {media} = await ai.generate({
-      model: 'googleai/imagen-2',
+      model: IMAGE_GENERATION_MODEL,
       prompt: [{media: {url: input.boxBackImageUri!}}, {text: promptText}],
       config: {
         responseModalities: ['TEXT', 'IMAGE'],
       },
     });
 
-    return {perfumeBoxBack: media!.url!};
+    return {perfumeBoxBack: requireGeneratedImage(media, 'Perfume box back generation')};
   }
 );
