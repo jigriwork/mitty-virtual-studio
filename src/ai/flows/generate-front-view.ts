@@ -45,7 +45,11 @@ const generateFrontViewFlow = ai.defineFlow(
     let promptMedia: PromptMedia[] = [];
 
     if (input.productCategory === 'Trousers') {
-        promptText = `Generate a realistic full-body image of a male model standing straight in a studio. He is wearing ${input.fitType} formal trousers made of ${input.fabricType} in ${input.color}. The model has a white or black tucked-in formal shirt and black dress shoes. Both legs should be straight, showing perfect trouser fall and crease. Sleeves must not be rolled. The waistband, belt loops, pockets, and fabric must exactly match the uploaded image. Keep facial expression neutral and posture professional.
+        promptText = `Generate an ultra-realistic, high-resolution, professional e-commerce studio photograph of a male model standing straight. This must look like an HD product listing photo from a premium fashion website, not a phone photo.
+
+He is wearing ${input.fitType} formal trousers made of ${input.fabricType} in ${input.color}. The model has a white or black tucked-in formal shirt and black dress shoes. Both legs should be straight, showing perfect trouser fall and crease. Sleeves must not be rolled. The waistband, belt loops, pockets, and fabric must exactly match the uploaded image. Keep facial expression neutral and posture professional.
+
+Use crisp, even, diffuse studio lighting with no harsh shadows. The image must be sharp, high-detail, clean, and suitable for a premium e-commerce product page.
 
 ${buildProductAccuracyInstructions(input)}`;
         promptMedia = [
@@ -57,7 +61,9 @@ ${buildProductAccuracyInstructions(input)}`;
         const material = input.fabricType;
         const color = input.color || 'specified';
         const forGender = input.gender === 'Male' ? "men's" : "women's";
-        promptText = `Generate an ultra-realistic, e-commerce studio photograph of a single ${forGender} formal shoe. The shoe should be made of high-quality ${color} ${material} and must perfectly match the design, texture, and stitching from the uploaded image. The view should be straight-on, showing the front of the shoe, including the toe cap, vamp, and laces clearly. The shoe must be standing upright on a plain, solid light grey background (hex #f0f2f5) with a soft, clean shadow underneath. The lighting should be bright and even, highlighting the material's texture without harsh reflections. Ensure the image is sharp, in focus, and free of any AI artifacts or distortions.
+        promptText = `Generate an ultra-realistic, high-resolution, professional e-commerce studio photograph of a single ${forGender} formal shoe. This must look like a premium HD product listing image, not a phone photo.
+
+The shoe should be made of high-quality ${color} ${material} and must perfectly match the design, texture, and stitching from the uploaded image. The view should be straight-on, showing the front of the shoe, including the toe cap, vamp, and laces clearly. The shoe must be standing upright on a plain, solid light grey background (hex #f0f2f5) with a soft, clean shadow underneath. The lighting should be bright, even, and diffuse, highlighting the material's texture without harsh reflections. Ensure the image is pin-sharp, high-detail, in focus, and free of any AI artifacts or distortions. Final output must be HD quality suitable for a premium e-commerce product page.
 
 ${buildProductAccuracyInstructions(input)}`;
         promptMedia = [{media: {url: input.productImage!}}];
@@ -69,15 +75,17 @@ ${buildProductAccuracyInstructions(input)}`;
       const colorPattern = `with a ${input.color || 'specified'} base and ${input.pattern || 'specified'} design`;
       const accuracyInstructions = buildProductAccuracyInstructions(input);
 
-      promptText = `Generate a photorealistic front view of a ${gender} model standing straight in a studio setup. He is wearing a ${productDescription} for ${forGender} ${colorPattern}, accurately reflecting the style and print of the uploaded product image.
+      promptText = `Generate an ultra-realistic, high-resolution, professional e-commerce studio photograph showing the front view of a ${gender} model standing straight. This must look like a premium HD product listing image shot by a professional photographer, not a phone photo.
+
+He is wearing a ${productDescription} for ${forGender} ${colorPattern}, accurately reflecting the style and print of the uploaded product image.
 
 ${accuracyInstructions}
 
 The model should have a neutral expression, facing forward, with both arms straight and visible. Shirt sleeves must not be folded. The ${input.productCategory.toLowerCase()} should be well-fitted, ironed, and worn with black trousers.
 
-The lighting should be clean and soft, like a professional ecommerce photoshoot. The ${input.productCategory.toLowerCase()} must match the uploaded product exactly, including button color, collar style, and print placement.
+Use crisp, even, diffuse studio lighting like a professional ecommerce photoshoot. No harsh shadows, no warm color cast, no dramatic lighting. The ${input.productCategory.toLowerCase()} must match the uploaded product exactly, including button color, collar style, and print placement.
 
-Background must follow the selected Output Background Style from the accuracy instructions, defaulting to clean light grey studio. Do not switch to beige, brown, outdoor, room, wall, or lifestyle backgrounds unless explicitly selected. The model face must remain the same across all other views.`;
+Background must follow the selected Output Background Style from the accuracy instructions, defaulting to clean light grey studio. Do not switch to beige, brown, outdoor, room, wall, or lifestyle backgrounds unless explicitly selected. The model face must remain the same across all other views. Final output must be sharp, high-detail, HD quality suitable for a premium e-commerce product page.`;
       promptMedia = input.productCategory === 'Shirt'
         ? buildShirtPromptMedia(input)
         : [{media: {url: input.productImage!}}];

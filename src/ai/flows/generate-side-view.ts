@@ -49,7 +49,9 @@ const generateSideViewFlow = ai.defineFlow(
       const material = input.fabricType;
       const color = input.color || 'specified';
       const forGender = input.gender === 'Male' ? "men's" : "women's";
-      promptText = `Generate an ultra-realistic, e-commerce studio photograph of a single ${forGender} formal shoe, viewed from the side profile. The shoe, made of ${color} ${material}, must exactly match the style and details of the uploaded image. It should be perfectly perpendicular to the camera, showcasing the quarter, sole construction, and heel. The background must be a solid light grey (hex #f0f2f5), and the lighting should be professional and even, revealing the texture of the material. The image needs to be crisp, well-defined, and suitable for a product page.
+      promptText = `Generate an ultra-realistic, high-resolution, professional e-commerce studio photograph of a single ${forGender} formal shoe, viewed from the side profile. This must look like a premium HD product listing image, not a phone photo.
+
+The shoe, made of ${color} ${material}, must exactly match the style and details of the uploaded image. It should be perfectly perpendicular to the camera, showcasing the quarter, sole construction, and heel. The background must be a solid light grey (hex #f0f2f5), and the lighting should be crisp, even, and diffuse, revealing the texture of the material without harsh reflections or shadows. The image must be pin-sharp, high-detail, and HD quality suitable for a premium e-commerce product page.
 
 ${buildProductAccuracyInstructions(input)}`;
       promptMedia = [{media: {url: input.productImage!}}];
@@ -61,13 +63,15 @@ ${buildProductAccuracyInstructions(input)}`;
       const colorPattern = `with a ${input.color || 'specified'} base and ${input.pattern || 'specified'} design`;
       const accuracyInstructions = buildProductAccuracyInstructions(input);
 
-      promptText = `Generate a photorealistic side view of the same ${gender} model, turned 90 degrees to his left, in a studio environment. He is wearing the same ${productDescription} for ${forGender}, based on the uploaded product image ${colorPattern}.
+      promptText = `Generate an ultra-realistic, high-resolution, professional e-commerce studio photograph showing the side view of the same ${gender} model, turned 90 degrees to his left. This must look like a premium HD product listing image shot by a professional photographer, not a phone photo.
+
+He is wearing the same ${productDescription} for ${forGender}, based on the uploaded product image ${colorPattern}.
 
 ${accuracyInstructions}
 
-The side profile should clearly show sleeve length and ${input.productCategory.toLowerCase()} fit. Sleeves should be worn normally with no folding or rolling. Use clean studio lighting and the selected Output Background Style from the accuracy instructions, defaulting to clean light grey studio. Do not switch to beige, brown, outdoor, room, wall, or lifestyle backgrounds unless explicitly selected.
+The side profile should clearly show sleeve length and ${input.productCategory.toLowerCase()} fit. Sleeves should be worn normally with no folding or rolling. Use crisp, even, diffuse studio lighting and the selected Output Background Style from the accuracy instructions, defaulting to clean light grey studio. Do not switch to beige, brown, outdoor, room, wall, or lifestyle backgrounds unless explicitly selected.
 
-Ensure color accuracy, fabric texture, and button/collar details match the uploaded shirt image. The model must be identical to the front view with same face, hair, and posture to ensure consistency across the product shoot.`;
+Ensure color accuracy, fabric texture, and button/collar details match the uploaded shirt image. The model must be identical to the front view with same face, hair, and posture to ensure consistency across the product shoot. Final output must be sharp, high-detail, HD quality suitable for a premium e-commerce product page.`;
       promptMedia = input.productCategory === 'Shirt'
         ? buildShirtPromptMedia(input)
         : [{media: {url: input.productImage!}}];

@@ -29,7 +29,10 @@ const generateTextureViewFlow = ai.defineFlow(
     outputSchema: GenerateTextureViewOutputSchema,
   },
   async (input) => {
-    const promptText = `Generate a high-resolution close-up macro shot of the trouser’s thigh or upper hip area, showcasing the texture of the ${input.materialStretch === 'Yes' ? 'stretchable' : 'non-stretchable'} ${input.fabricType} in ${input.color}. The final image color MUST be ${input.color}. Match the weave, grain, and finish from the uploaded texture reference, but do not use the color from the reference image. No alterations or smoothing. Use soft light and clean background to keep the texture natural and realistic. If the brand tag is visible in the original, preserve it.`;
+    const stretchDesc = input.materialStretch === 'Yes' ? 'stretchable' : 'non-stretchable';
+    const promptText = `Generate an ultra-realistic, high-resolution, professional e-commerce close-up macro photograph of the trouser's thigh or upper hip area, showcasing the texture of the ${stretchDesc} ${input.fabricType} in ${input.color}. This must look like a premium HD product detail shot from a professional studio, not a phone photo.
+
+The final image color MUST be ${input.color}. Match the weave, grain, and finish from the uploaded texture reference, but do not use the color from the reference image. No alterations or smoothing. Use soft, even, diffuse studio lighting and a clean background to keep the texture natural and realistic. If the brand tag is visible in the original, preserve it. Final output must be pin-sharp, high-detail, HD quality suitable for a premium e-commerce product page.`;
     
     const {media} = await ai.generate({
       model: IMAGE_GENERATION_MODEL,

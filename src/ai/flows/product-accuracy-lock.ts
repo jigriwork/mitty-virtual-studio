@@ -48,7 +48,8 @@ export function buildStudioConsistencyInstructions(input: GenerateProductViewInp
 
   return [
     `Output Background Style: ${style}. Use a ${background}.`,
-    'Background consistency lock: front, side, back, and flatlay must feel like one ecommerce studio shoot.',
+    'All generated images must look like they were shot in a professional photography studio with DSLR equipment and soft-box lighting. They must NOT look like phone photos, table photos, or casual snapshots.',
+    'Background consistency lock: front, side, back, and flatlay must feel like one premium e-commerce studio shoot.',
     'Use the same clean studio background style, same camera quality, same exposure, and same soft even lighting across all generated views.',
     'Do not randomly switch between grey, beige, brown, outdoor, lifestyle, room, table, wall, floor, or textured backgrounds.',
     'Default to clean light grey studio unless the selected Output Background Style says otherwise.',
@@ -59,6 +60,7 @@ export function buildStudioConsistencyInstructions(input: GenerateProductViewInp
     'Shirt consistency: same collar, same buttons, same placket, same pocket, same sleeve type, same fabric finish.',
     'Do not add or remove pocket between front, side, back, and flatlay.',
     'Do not add logo if logo is set to No visible logo. Do not add sleeve band, patch, embroidery, text, extra label, or contrast design.',
+    'All output images must be pin-sharp, high-detail, HD quality with professional studio aesthetics suitable for premium e-commerce product listing pages.',
   ].join('\n');
 }
 

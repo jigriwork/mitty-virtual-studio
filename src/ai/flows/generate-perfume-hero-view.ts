@@ -26,13 +26,7 @@ const generatePerfumeHeroViewFlow = ai.defineFlow(
   },
   async (input) => {
     
-    const promptText = `Generate a beautiful, ultra-realistic e-commerce hero photograph showing the MITTY perfume bottle and its box together.
-Use the uploaded reference images for the bottle and box to ensure perfect accuracy.
-
-The bottle should be positioned slightly in front of the box. The box can be at a slight angle to add depth.
-Both items must be on a clean, premium light background (soft beige or off-white) with soft, natural shadows that ground them in the scene.
-The lighting should be luxurious and professional, suitable for a main product banner.
-Ensure both the bottle and box perfectly match the branding, colors, and design from the reference images. Do not add or change any text.`
+    const promptText = `Generate an ultra-realistic, high-resolution, professional e-commerce hero photograph showing the MITTY perfume bottle and its box together. This must look like a premium HD hero banner image shot in a professional photography studio with DSLR equipment, NOT a phone photo.\n\nUse the uploaded reference images for the bottle and box to ensure perfect accuracy.\n\nThe bottle should be positioned slightly in front of the box. The box can be at a slight angle to add depth. Both items must be on a clean, premium light background (soft beige or off-white seamless studio backdrop) with soft, natural shadows that ground them in the scene.\n\nLighting should be luxurious, even, and diffuse — suitable for a main product banner on a premium e-commerce website. No harsh shadows, no phone shadows, no warm color cast, no dramatic spotlight.\n\nEnsure both the bottle and box perfectly match the branding, colors, and design from the reference images. Do not add or change any text. Final output must be pin-sharp, high-detail, HD quality with professional studio aesthetics.`
 
     if (!input.bottleImageUri) {
        throw new Error('Bottle image is required for hero view.');
