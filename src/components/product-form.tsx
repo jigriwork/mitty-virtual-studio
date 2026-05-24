@@ -405,6 +405,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                         title="Main Photo"
                         badge="Required"
                         helperText="Folded shirt or front product image. This is enough to generate."
+                        isMainImage
                       />
                     </FormItem>
                   )}
@@ -512,7 +513,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                 render={() => (
                   <FormItem>
                     <FormLabel>Product Image</FormLabel>
-                    <FileUpload form={form} name="productImage" />
+                    <FileUpload form={form} name="productImage" isMainImage />
                   </FormItem>
                 )}
               />
@@ -526,7 +527,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                   render={() => (
                     <FormItem>
                       <FormLabel>Front View Image</FormLabel>
-                      <FileUpload form={form} name="productImageFront" />
+                      <FileUpload form={form} name="productImageFront" isMainImage />
                     </FormItem>
                   )}
                 />
@@ -561,7 +562,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                   render={() => (
                     <FormItem>
                       <FormLabel>Perfume Bottle Image</FormLabel>
-                      <FileUpload form={form} name="bottleImageFile" />
+                      <FileUpload form={form} name="bottleImageFile" isMainImage />
                     </FormItem>
                   )}
                 />

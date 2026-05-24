@@ -28,8 +28,8 @@ import type {
   SeoContentPack,
 } from '@/lib/types';
 import { productFormSchema } from '@/lib/types';
-import { fileToDataUri } from '@/lib/utils';
 import { getSafeGenerationErrorMessage } from '@/lib/ai-error-message';
+import { optimizeImage, estimatePayload, type OptimizedImage } from '@/lib/image-compression';
 import type { GenerateProductViewInput } from '@/ai/flows/types';
 
 type GeneratingState = {
@@ -264,6 +264,8 @@ export default function Home() {
     
     try {
       const uris: {[key: string]: string} = {};
+      const allOptimized: OptimizedImage[] = [];
+
       const getUploadedFile = (files: File[] | null | undefined, fieldName: string) => {
         const file = files?.[0];
 
@@ -272,6 +274,13 @@ export default function Home() {
         }
 
         return file;
+      };
+
+      /** Optimize a file and track it for payload estimation. */
+      const optimizeAndTrack = async (file: File): Promise<string> => {
+        const opt = await optimizeImage(file);
+        allOptimized.push(opt);
+        return opt.dataUri;
       };
 
       markStepActive('prepare');
@@ -296,9 +305,9 @@ export default function Home() {
 
       if (data.productCategory === 'Trousers') {
         const [frontUri, fabricUri, backUri] = await Promise.all([
-          fileToDataUri(getUploadedFile(data.productImageFront, 'Front view image')),
-          fileToDataUri(getUploadedFile(data.productImageFabric, 'Fabric close-up image')),
-          fileToDataUri(getUploadedFile(data.productImageBack, 'Back view image')),
+          optimizeAndTrack(getUploadedFile(data.productImageFront, 'Front view image')),
+          optimizeAndTrack(getUploadedFile(data.productImageFabric, 'Fabric close-up image')),
+          optimizeAndTrack(getUploadedFile(data.productImageBack, 'Back view image')),
         ]);
         uris.front = frontUri;
         uris.fabric = fabricUri;
@@ -308,9 +317,9 @@ export default function Home() {
         baseFlowInput.productImageBack = backUri;
       } else if (data.productCategory === 'Perfume') {
         const [bottleUri, boxFrontUri, boxBackUri] = await Promise.all([
-            fileToDataUri(getUploadedFile(data.bottleImageFile, 'Perfume bottle image')),
-            fileToDataUri(getUploadedFile(data.boxFrontImageFile, 'Perfume box front image')),
-            fileToDataUri(getUploadedFile(data.boxBackImageFile, 'Perfume box back image')),
+            optimizeAndTrack(getUploadedFile(data.bottleImageFile, 'Perfume bottle image')),
+            optimizeAndTrack(getUploadedFile(data.boxFrontImageFile, 'Perfume box front image')),
+            optimizeAndTrack(getUploadedFile(data.boxBackImageFile, 'Perfume box back image')),
         ]);
         uris.bottle = bottleUri;
         uris.boxFront = boxFrontUri;
@@ -319,7 +328,7 @@ export default function Home() {
         baseFlowInput.boxFrontImageUri = boxFrontUri;
         baseFlowInput.boxBackImageUri = boxBackUri;
       } else if (data.productCategory === 'Shirt') {
-        const imageUri = await fileToDataUri(getUploadedFile(data.productImage, 'Main product photo'));
+        const imageUri = await optimizeAndTrack(getUploadedFile(data.productImage, 'Main product photo'));
         uris.main = imageUri;
         baseFlowInput.productImage = imageUri;
         baseFlowInput.mainProductImage = imageUri;
@@ -339,15 +348,26 @@ export default function Home() {
             return;
           }
 
-          const uri = await fileToDataUri(file);
+          const uri = await optimizeAndTrack(file);
           uris[uriKey] = uri;
           baseFlowInput[fieldName] = uri;
         }));
       } else {
-        const imageUri = await fileToDataUri(getUploadedFile(data.productImage, 'Product image'));
+        const imageUri = await optimizeAndTrack(getUploadedFile(data.productImage, 'Product image'));
         uris.main = imageUri;
         baseFlowInput.productImage = imageUri;
       }
+
+      // -- Payload guard --
+      const payload = estimatePayload(allOptimized);
+      if (payload.exceedsLimit) {
+        throw new Error(
+          'Images are still too large for web deployment (estimated ' +
+          payload.formatted +
+          '). Please remove optional references or use smaller photos.'
+        );
+      }
+
       setProductImageUris(uris);
       markStepCompleted('prepare');
       markStepActive('details');

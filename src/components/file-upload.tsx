@@ -1,6 +1,6 @@
 'use client';
 
-import { Camera, ImagePlus, UploadCloud, X } from 'lucide-react';
+import { Camera, ImagePlus, UploadCloud, X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import type { ChangeEvent } from 'react';
 import { useCallback, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
@@ -8,6 +8,7 @@ import type { UseFormReturn } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { ProductFormValues } from '@/lib/types';
+import { optimizeImage, formatBytes, exceedsPerImageLimit, type OptimizedImage } from '@/lib/image-compression';
 
 type FileFieldName =
   | 'productImage'
@@ -30,27 +31,44 @@ interface FileUploadProps {
   helperText?: string;
   badge?: string;
   compact?: boolean;
+  /** Marks this upload slot as the main / required image (higher size limit). */
+  isMainImage?: boolean;
 }
 
-export function FileUpload({ form, name, title, helperText, badge, compact = false }: FileUploadProps) {
+export function FileUpload({ form, name, title, helperText, badge, compact = false, isMainImage = false }: FileUploadProps) {
   const [preview, setPreview] = useState<string | null>(null);
+  const [sizeInfo, setSizeInfo] = useState<OptimizedImage | null>(null);
+  const [compressing, setCompressing] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const { setValue, formState: { errors } } = form;
 
   const setFiles = useCallback(
-    (acceptedFiles: File[]) => {
+    async (acceptedFiles: File[]) => {
       if (acceptedFiles.length > 0) {
         const file = acceptedFiles[0];
-        setValue(name, acceptedFiles, { shouldValidate: true });
-        const reader = new FileReader();
-        reader.onload = () => setPreview(reader.result as string);
-        reader.readAsDataURL(file);
+        setCompressing(true);
+        try {
+          const optimized = await optimizeImage(file);
+          // Store the optimised file in the form
+          setValue(name, [optimized.file], { shouldValidate: true });
+          setPreview(optimized.dataUri);
+          setSizeInfo(optimized);
+        } catch {
+          // Fallback – use original
+          setValue(name, acceptedFiles, { shouldValidate: true });
+          const reader = new FileReader();
+          reader.onload = () => setPreview(reader.result as string);
+          reader.readAsDataURL(file);
+          setSizeInfo(null);
+        } finally {
+          setCompressing(false);
+        }
       }
     },
     [name, setValue]
   );
 
-  const onDrop = useCallback((acceptedFiles: File[]) => setFiles(acceptedFiles), [setFiles]);
+  const onDrop = useCallback((acceptedFiles: File[]) => { void setFiles(acceptedFiles); }, [setFiles]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -60,16 +78,18 @@ export function FileUpload({ form, name, title, helperText, badge, compact = fal
 
   const handleCameraChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
-    setFiles(files);
+    void setFiles(files);
     event.target.value = '';
   };
 
   const removeFile = () => {
     setValue(name, null, { shouldValidate: true });
     setPreview(null);
+    setSizeInfo(null);
   };
   
   const errorMessage = errors[name]?.message as string | undefined;
+  const tooLarge = sizeInfo ? exceedsPerImageLimit(sizeInfo, isMainImage) : false;
 
   return (
     <div className="space-y-2">
@@ -104,7 +124,12 @@ export function FileUpload({ form, name, title, helperText, badge, compact = fal
           className="hidden"
           onChange={handleCameraChange}
         />
-        {preview ? (
+        {compressing ? (
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#b78d4a] border-t-transparent" />
+            <p className="text-sm font-medium">Optimizing image…</p>
+          </div>
+        ) : preview ? (
           <>
             {/* Upload previews are local data URIs; native img keeps mobile/camera previews simple. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -153,6 +178,35 @@ export function FileUpload({ form, name, title, helperText, badge, compact = fal
           </div>
         )}
       </div>
+
+      {/* Size info strip */}
+      {sizeInfo && (
+        <div className={cn(
+          'flex items-center gap-2 rounded-md px-3 py-1.5 text-xs',
+          tooLarge
+            ? 'border border-amber-300 bg-amber-50 text-amber-800'
+            : 'border border-emerald-200 bg-emerald-50 text-emerald-800'
+        )}>
+          {tooLarge ? (
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          ) : (
+            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+          )}
+          <span>
+            {sizeInfo.wasCompressed
+              ? `${formatBytes(sizeInfo.originalSize)} → ${formatBytes(sizeInfo.optimizedSize)}`
+              : formatBytes(sizeInfo.optimizedSize)
+            }
+          </span>
+          {sizeInfo.wasCompressed && (
+            <span className="text-[10px] opacity-70">· Optimized for web generation</span>
+          )}
+          {tooLarge && (
+            <span className="ml-auto font-medium">Still large — consider a smaller photo</span>
+          )}
+        </div>
+      )}
+
       {errorMessage && (
         <p className="mt-2 text-sm text-destructive">{errorMessage}</p>
       )}

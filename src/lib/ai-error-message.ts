@@ -27,7 +27,7 @@ export function getSafeGenerationErrorMessage(error: unknown) {
   }
 
   if (hasAny(message, ['payload', 'too large', 'max file size', '413'])) {
-    return 'Uploaded image is too large for generation.';
+    return 'Upload is too large for Vercel. Please use fewer/smaller reference photos or compressed images.';
   }
 
   if (hasAny(message, ['timeout', 'timed out', 'deadline'])) {
