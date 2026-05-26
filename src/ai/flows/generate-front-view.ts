@@ -47,7 +47,9 @@ const generateFrontViewFlow = ai.defineFlow(
     if (input.productCategory === 'Trousers') {
         promptText = `Generate an ultra-realistic, high-resolution, professional e-commerce studio photograph of a male model standing straight. This must look like an HD product listing photo from a premium fashion website, not a phone photo.
 
-He is wearing ${input.fitType} formal trousers made of ${input.fabricType} in ${input.color}. The model has a white or black tucked-in formal shirt and black dress shoes. Both legs should be straight, showing perfect trouser fall and crease. Sleeves must not be rolled. The waistband, belt loops, pockets, and fabric must exactly match the uploaded image. Keep facial expression neutral and posture professional.
+He is wearing ${input.trouserFit && input.trouserFit !== 'Auto Detect' ? input.trouserFit : input.fitType} formal trousers made of ${input.fabricType} in ${input.color}. The model has a white or black tucked-in formal shirt and black dress shoes. Both legs should be straight, showing perfect trouser fall and crease. Sleeves must not be rolled. The front construction, slant side pockets or straight side pockets, waistband, belt loops, closure, front style, crease lines, fit, silhouette, and fabric must exactly match the uploaded front trouser reference.
+
+No wearable logo, labels, tags, side tab, back tab, patches, or brand marks may appear on the trouser unless the trouser accuracy lock explicitly allows it and it is clearly visible in source. If not clearly visible in source, do not add any tag/branding element. A hanging tag is not wearable logo and must not become a side tab, back tab, label, patch, or brand mark on the model-worn trouser. Model-worn images must never show invented brand tags/tabs/labels, even if a retail hanging tag appears in a store/product photo. Keep facial expression neutral and posture professional.
 
 Use crisp, even, diffuse studio lighting with no harsh shadows. The image must be sharp, high-detail, clean, and suitable for a premium e-commerce product page.
 

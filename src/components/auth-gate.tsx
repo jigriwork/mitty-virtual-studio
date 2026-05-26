@@ -4,6 +4,7 @@ import { Loader2, LockKeyhole } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from '@/lib/supabase/client';
+import { APP_VERSION_LABEL } from '@/lib/app-version';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -177,7 +178,7 @@ export function AuthGate({ children }: AuthGateProps) {
     }
 
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,_rgba(183,141,74,0.16),_transparent_32rem),linear-gradient(180deg,_#faf7f0_0%,_#f4efe6_100%)] p-4">
+      <main className="flex min-h-screen flex-col items-center justify-center bg-[radial-gradient(circle_at_top_left,_rgba(183,141,74,0.16),_transparent_32rem),linear-gradient(180deg,_#faf7f0_0%,_#f4efe6_100%)] p-4">
         <Card className="w-full max-w-md border-black/10 bg-white/90 shadow-xl backdrop-blur">
           <CardContent className="p-7 sm:p-8">
             <div className="flex items-center gap-3">
@@ -223,6 +224,9 @@ export function AuthGate({ children }: AuthGateProps) {
             </form>
           </CardContent>
         </Card>
+        <p className="mt-6 text-center text-xs text-[#8a6635]/60">
+          MITTY Virtual Studio &bull; {APP_VERSION_LABEL}
+        </p>
       </main>
     );
   }

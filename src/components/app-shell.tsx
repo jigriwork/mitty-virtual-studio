@@ -11,6 +11,7 @@ import {
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { MittyLogo } from '@/components/mitty-logo';
+import { APP_VERSION, APP_VERSION_LABEL } from '@/lib/app-version';
 import { cn } from '@/lib/utils';
 
 export type AppSection = 'studio' | 'products' | 'review' | 'settings' | 'staff';
@@ -65,7 +66,7 @@ function Header({
           <MittyLogo className="h-10 w-10 shrink-0" />
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold uppercase tracking-[0.18em] text-[#8a6635]">
-              MITTY Studio
+              MITTY Studio <span className="text-[10px] font-normal normal-case tracking-normal text-[#8a6635]/50">v{APP_VERSION}</span>
             </p>
             <h1 className="truncate text-lg font-semibold text-[#171717] sm:text-xl">
               Virtual Studio Dashboard
@@ -122,6 +123,7 @@ function SidebarNav({
           <p className="mt-1 text-xs leading-5 text-white/55">
             Create product visuals and listing copy from a guided studio workflow.
           </p>
+          <p className="mt-2 text-[10px] text-white/30">{APP_VERSION_LABEL}</p>
         </div>
       </div>
     </aside>

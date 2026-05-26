@@ -48,7 +48,11 @@ const generateBackViewFlow = ai.defineFlow(
     if (input.productCategory === 'Trousers') {
         promptText = `Generate an ultra-realistic, high-resolution, professional e-commerce studio photograph showing the back view of the same model, standing straight with arms by the side. This must look like a premium HD product listing image, not a phone photo.
 
-He is wearing the same ${input.color} ${input.fitType} ${input.materialStretch === 'Yes' ? 'stretch' : ''} trousers. Clearly show back welt pockets, seams, and waistband as shown in the uploaded product image. Use the same crisp, even, diffuse studio lighting and background as the front view. Fabric must still show ${input.materialStretch === 'Yes' ? 'slight stretch' : 'a standard fall'} and a clean finish. No model pose changes. Final output must be sharp, high-detail, HD quality suitable for a premium e-commerce product page.
+He is wearing the same ${input.color} ${input.trouserFit && input.trouserFit !== 'Auto Detect' ? input.trouserFit : input.fitType} ${input.materialStretch === 'Yes' ? 'stretch' : ''} trousers. Preserve the uploaded back reference exactly: back waistband, belt loops, back construction, back crease, fit, silhouette, and back pockets. If selected or visible, the back view must show two welt pockets with buttons. Do not invent a back logo, label, side tab, back tab, patch, text, extra button, extra seam, or extra pocket.
+
+Back view anti-tag rule: do not add a black label/tab near waistband, belt loops, back pocket edge, or side seam unless clearly visible in source and allowed. Do not invent waistband branding patch, inner waistband label, logo plaque, text mark, hanging tag, paper tag, price tag, retail tag, side tab, or back tab. If not clearly visible in source, do not add any tag/branding element. Back view must remain clean if source has no visible branding.
+
+A hanging tag is not wearable logo and must not become a back tab, side tab, label, patch, or brand mark on the model-worn trouser. Even if product has a retail hanging tag in a store photo, do not place it on model-worn trouser. Use the same crisp, even, diffuse studio lighting and background as the front view. Fabric must still show ${input.materialStretch === 'Yes' ? 'slight stretch' : 'a standard fall'} and a clean finish. No model pose changes. Final output must be sharp, high-detail, HD quality suitable for a premium e-commerce product page.
 
 ${buildProductAccuracyInstructions(input)}`;
          promptMedia = [

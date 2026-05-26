@@ -173,6 +173,9 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                 <Button type="button" variant="outline" size="sm" onClick={() => addCommonSizes(['38', '40', '42', '44'])}>
                   Add 38-44
                 </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => addCommonSizes(['28', '30', '32', '34', '36', '38', '40'])}>
+                  Add 28-40
+                </Button>
                 <Button type="button" variant="outline" size="sm" onClick={() => addCommonSizes(['38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60'])}>
                   Add 38-60
                 </Button>
@@ -456,9 +459,9 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="materialStretch"
+                 <FormField
+                   control={form.control}
+                   name="materialStretch"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Material Stretch</FormLabel>
@@ -473,10 +476,192 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                       </Select>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
-              </>
-            )}
+                   )}
+                 />
+                <Accordion type="single" collapsible className="rounded-lg border border-black/10 bg-white px-4">
+                  <AccordionItem value="trouser-accuracy-lock" className="border-0">
+                    <AccordionTrigger className="py-4 text-sm font-semibold text-[#171717] hover:no-underline">
+                      Trouser Accuracy Lock
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-4">
+                      <p className="text-sm leading-6 text-muted-foreground">
+                        Use these when AI changes pockets, logo, closure, pleats, crease, or fit.
+                      </p>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <FormField
+                          control={form.control}
+                          name="trouserFrontPocketType"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Front Pocket Type</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="Auto Detect">Auto Detect</SelectItem>
+                                  <SelectItem value="Slant Side Pockets">Slant Side Pockets</SelectItem>
+                                  <SelectItem value="Straight Side Pockets">Straight Side Pockets</SelectItem>
+                                  <SelectItem value="No Visible Front Pockets">No Visible Front Pockets</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="trouserBackPocketType"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Back Pocket Type</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="Auto Detect">Auto Detect</SelectItem>
+                                  <SelectItem value="Two Welt Pockets With Buttons">Two Welt Pockets With Buttons</SelectItem>
+                                  <SelectItem value="Two Welt Pockets No Buttons">Two Welt Pockets No Buttons</SelectItem>
+                                  <SelectItem value="One Back Pocket">One Back Pocket</SelectItem>
+                                  <SelectItem value="No Back Pockets">No Back Pockets</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="trouserVisibleLogo"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Visible Logo on Worn Trouser</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="Auto Detect">Auto Detect</SelectItem>
+                                  <SelectItem value="No visible logo">No visible logo</SelectItem>
+                                  <SelectItem value="Tag only">Tag only</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="trouserFrontStyle"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Front Style</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="Auto Detect">Auto Detect</SelectItem>
+                                  <SelectItem value="Flat Front">Flat Front</SelectItem>
+                                  <SelectItem value="Single Pleat">Single Pleat</SelectItem>
+                                  <SelectItem value="Double Pleat">Double Pleat</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="trouserCrease"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Crease</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="Auto Detect">Auto Detect</SelectItem>
+                                  <SelectItem value="Visible Center Crease">Visible Center Crease</SelectItem>
+                                  <SelectItem value="No Visible Crease">No Visible Crease</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="trouserFit"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Fit</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="Auto Detect">Auto Detect</SelectItem>
+                                  <SelectItem value="Slim Fit">Slim Fit</SelectItem>
+                                  <SelectItem value="Regular Fit">Regular Fit</SelectItem>
+                                  <SelectItem value="Relaxed Fit">Relaxed Fit</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="trouserFabricFinish"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Fabric Finish</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="Auto Detect">Auto Detect</SelectItem>
+                                  <SelectItem value="Fine Woven">Fine Woven</SelectItem>
+                                  <SelectItem value="Smooth Formal">Smooth Formal</SelectItem>
+                                  <SelectItem value="Lycra Blend Look">Lycra Blend Look</SelectItem>
+                                  <SelectItem value="Textured Weave">Textured Weave</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="trouserTagBrandingVisibility"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Tag / Branding Visibility</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="Auto Detect">Auto Detect</SelectItem>
+                                  <SelectItem value="No visible tags or branding anywhere">No visible tags or branding anywhere</SelectItem>
+                                  <SelectItem value="Show only if clearly visible in source">Show only if clearly visible in source</SelectItem>
+                                  <SelectItem value="Flatlay/product-only tag allowed if clearly visible in source">Flatlay/product-only tag allowed if clearly visible in source</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+               </>
+             )}
            
             {(productCategory === 'Shirt' || productCategory === 'Shoes' || productCategory === 'Jeans' || productCategory === 'Trousers') && (
                <FormField

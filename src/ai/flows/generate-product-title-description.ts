@@ -95,6 +95,14 @@ const prompt = ai.definePrompt({
   Pattern Override: {{#if patternOverride}}{{{patternOverride}}}{{else}}Auto Detect{{/if}}
   Collar Type: {{#if collarType}}{{{collarType}}}{{else}}Auto Detect{{/if}}
   Visible Logo on Worn Shirt: {{#if visibleLogo}}{{{visibleLogo}}}{{else}}Auto Detect{{/if}}
+  Trouser Front Pocket Type: {{#if trouserFrontPocketType}}{{{trouserFrontPocketType}}}{{else}}Auto Detect{{/if}}
+  Trouser Back Pocket Type: {{#if trouserBackPocketType}}{{{trouserBackPocketType}}}{{else}}Auto Detect{{/if}}
+  Visible Logo on Worn Trouser: {{#if trouserVisibleLogo}}{{{trouserVisibleLogo}}}{{else}}Auto Detect{{/if}}
+  Trouser Front Style: {{#if trouserFrontStyle}}{{{trouserFrontStyle}}}{{else}}Auto Detect{{/if}}
+  Trouser Crease: {{#if trouserCrease}}{{{trouserCrease}}}{{else}}Auto Detect{{/if}}
+  Trouser Fit Lock: {{#if trouserFit}}{{{trouserFit}}}{{else}}Auto Detect{{/if}}
+  Trouser Fabric Finish: {{#if trouserFabricFinish}}{{{trouserFabricFinish}}}{{else}}Auto Detect{{/if}}
+  Trouser Tag / Branding Visibility: {{#if trouserTagBrandingVisibility}}{{{trouserTagBrandingVisibility}}}{{else}}Auto Detect{{/if}}
   Output Background Style: {{#if outputBackgroundStyle}}{{{outputBackgroundStyle}}}{{else}}Clean Light Grey Studio{{/if}}
   User-provided Color: {{#if color}}{{{color}}}{{else}}N/A{{/if}}
 

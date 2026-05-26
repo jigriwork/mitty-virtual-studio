@@ -2,6 +2,18 @@
 
 This app is an internal MITTY tool. It uses Google/Gemini/Genkit for generation, Supabase Auth for login, Supabase Storage for public catalog image URLs, and browser `localStorage` for catalog persistence.
 
+## App Version
+
+- **Current version:** 2.0.0
+- The version constant lives in `src/lib/app-version.ts`.
+- The version label is shown on the login page footer and the sidebar footer.
+
+### Installed / PWA Users
+
+- When the app is deployed with a new version, installed or mobile-browser users who open the app will see a reload banner if their stored version differs from the deployed version.
+- The update check is client-side only: it compares a `localStorage` value (`mitty-app-version`) against the compiled `APP_VERSION` constant. No service worker or external API is involved.
+- The app currently has a PWA manifest and shell metadata but **does not** register a service worker and has **no offline cache**. The browser fetches the latest build on every page load.
+
 ## Vercel Environment Variables
 
 Add these variables in Vercel Project Settings under Environment Variables:

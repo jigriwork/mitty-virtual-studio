@@ -2,6 +2,7 @@ import type {Metadata, Viewport} from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
+import { UpdateBanner } from "@/components/update-banner"
 
 const inter = Inter({
   subsets: ['latin'],
@@ -45,8 +46,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} font-body antialiased`}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.variable} font-body antialiased`} suppressHydrationWarning>
+        <UpdateBanner />
         {children}
         <Toaster />
       </body>

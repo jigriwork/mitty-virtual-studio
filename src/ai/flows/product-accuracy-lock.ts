@@ -166,7 +166,201 @@ export function buildForbiddenDesignInstructions(input: GenerateProductViewInput
   ].join(' ');
 }
 
+function buildTrouserFrontPocketInstructions(input: GenerateProductViewInput) {
+  if (input.trouserFrontPocketType === 'Slant Side Pockets') {
+    return 'Front pocket rule: front view must preserve slant side pockets exactly as shown in the front trouser reference. Do not change them into straight pockets, patch pockets, cargo pockets, zipper pockets, or decorative seams.';
+  }
+
+  if (input.trouserFrontPocketType === 'Straight Side Pockets') {
+    return 'Front pocket rule: preserve straight side pockets exactly as shown. Do not change them into slant pockets, patch pockets, cargo pockets, zipper pockets, or decorative seams.';
+  }
+
+  if (input.trouserFrontPocketType === 'No Visible Front Pockets') {
+    return 'Front pocket rule: show no visible front pockets. Do not invent front pockets, pocket openings, pocket flaps, or decorative pocket seams.';
+  }
+
+  return 'Front pocket rule: auto detect conservatively from the front reference. If slant side pockets are visible, preserve slant side pockets. If pocket type is uncertain, do not invent extra pockets or decorative pocket details.';
+}
+
+function buildTrouserBackPocketInstructions(input: GenerateProductViewInput) {
+  if (input.trouserBackPocketType === 'Two Welt Pockets With Buttons') {
+    return 'Back pocket rule: back view must show exactly two welt pockets with buttons, matching the back reference. Do not remove buttons, add flaps, add tabs, add patches, or change the pocket count.';
+  }
+
+  if (input.trouserBackPocketType === 'Two Welt Pockets No Buttons') {
+    return 'Back pocket rule: back view must show exactly two welt pockets without buttons, matching the back reference. Do not add buttons, flaps, tabs, patches, or extra pockets.';
+  }
+
+  if (input.trouserBackPocketType === 'One Back Pocket') {
+    return 'Back pocket rule: show exactly one back pocket only if that matches the reference. Do not invent a second back pocket, buttons, flaps, tabs, patches, or logos.';
+  }
+
+  if (input.trouserBackPocketType === 'No Back Pockets') {
+    return 'Back pocket rule: show no back pockets. Do not invent welt pockets, patch pockets, buttons, flaps, tabs, or back labels.';
+  }
+
+  return 'Back pocket rule: auto detect conservatively from the back reference. If two welt pockets with buttons are visible, preserve two welt pockets with buttons. Do not invent pocket count, buttons, flaps, patches, tabs, or labels.';
+}
+
+function buildTrouserLogoInstructions(input: GenerateProductViewInput) {
+  const sourceVisibleOnlyRules = [
+    'Source-visible-only branding rule: do not invent any brand tag, brand tab, label, waistband label, inner label, stitched patch, side tab, back tab, logo plaque, text mark, hanging tag, paper tag, price tag, retail tag, or packaging element.',
+    'A tag/brand/label may only appear if it is clearly visible in the uploaded source image for that product and the selected Tag / Branding Visibility setting allows it.',
+    'If the source image does not clearly show a tag/label/branding, generated output must contain zero tags/branding elements.',
+    'If not clearly visible in source, do not add any tag/branding element.',
+  ];
+
+  if (input.trouserTagBrandingVisibility === 'No visible tags or branding anywhere') {
+    return [
+      ...sourceVisibleOnlyRules,
+      'Tag / Branding Visibility rule: no visible tags or branding anywhere. Show zero tags, labels, tabs, patches, logos, text marks, hanging tags, paper tags, retail tags, waistband labels, or inner labels in front, back, texture, and flatlay outputs.',
+      'Model-worn rule: never show invented brand tags, tabs, labels, patches, or logos. Even if product has a retail hanging tag in a store photo, do not place it on model-worn trouser.',
+    ].join(' ');
+  }
+
+  if (input.trouserTagBrandingVisibility === 'Show only if clearly visible in source') {
+    return [
+      ...sourceVisibleOnlyRules,
+      'Tag / Branding Visibility rule: show a tag, label, tab, or branding only if it is clearly visible in the uploaded source image and only in the same location/type. Do not infer, recreate, relocate, enlarge, stylize, or add black tabs.',
+    ].join(' ');
+  }
+
+  if (input.trouserTagBrandingVisibility === 'Flatlay/product-only tag allowed if clearly visible in source') {
+    return [
+      ...sourceVisibleOnlyRules,
+      'Tag / Branding Visibility rule: model-worn images must have no visible branding, tag, label, side tab, back tab, patch, logo, hanging tag, paper tag, or retail tag.',
+      'Flatlay/product-only tag may appear only if clearly visible in the uploaded source product image. If not clearly visible in source, flatlay must be completely tag-free.',
+    ].join(' ');
+  }
+
+  if (input.trouserVisibleLogo === 'No visible logo') {
+    return [
+      ...sourceVisibleOnlyRules,
+      'Trouser logo rule: show zero visible logos, labels, brand tabs, side tabs, back tabs, patches, text, or brand marks on the model-worn trouser.',
+      'Do not add black label/logo/tab anywhere on the model-worn trouser.',
+    ].join(' ');
+  }
+
+  if (input.trouserVisibleLogo === 'Tag only') {
+    return [
+      ...sourceVisibleOnlyRules,
+      'Trouser logo rule: a tag may appear only in product/flatlay if it exists in the uploaded product reference.',
+      'Never place that tag as a wearable logo, side tab, back tab, patch, or label on the model-worn trouser.',
+    ].join(' ');
+  }
+
+  return [
+    ...sourceVisibleOnlyRules,
+    'Trouser logo rule: if the uploaded wearable trouser surface does not clearly show an outer visible logo, do not add any logo, label, side tab, back tab, patch, or brand mark.',
+    'Do not add black label/logo/tab anywhere on the model-worn trouser.',
+    'Back view branding rule: do not add black label/tab near waistband, belt loops, back pocket edge, or side seam unless clearly visible in source. Do not invent waistband branding patch. Back view must remain clean if source has no visible branding.',
+    'Flatlay branding rule: do not invent inner waistband brand label, hanging tag, paper tag, retail tag, or neck/waist label substitute. If source flatlay/product references do not clearly show a tag, flatlay must be completely tag-free.',
+  ].join(' ');
+}
+
+function buildTrouserFrontStyleInstructions(input: GenerateProductViewInput) {
+  if (input.trouserFrontStyle === 'Flat Front') {
+    return 'Front style rule: preserve a flat front trouser. Do not add single pleats, double pleats, darts that look like pleats, or decorative folds.';
+  }
+
+  if (input.trouserFrontStyle === 'Single Pleat') {
+    return 'Front style rule: preserve a single pleat style. Do not change it to flat front or double pleat.';
+  }
+
+  if (input.trouserFrontStyle === 'Double Pleat') {
+    return 'Front style rule: preserve a double pleat style. Do not change it to flat front or single pleat.';
+  }
+
+  return 'Front style rule: auto detect conservatively from the front reference. Do not invent pleats if the front reference looks flat front.';
+}
+
+function buildTrouserCreaseInstructions(input: GenerateProductViewInput) {
+  if (input.trouserCrease === 'Visible Center Crease') {
+    return 'Crease rule: preserve clean visible center crease lines down the legs, matching the uploaded trouser reference. Do not move, remove, or exaggerate the crease.';
+  }
+
+  if (input.trouserCrease === 'No Visible Crease') {
+    return 'Crease rule: do not add strong center crease lines if the reference does not show them.';
+  }
+
+  return 'Crease rule: auto detect conservatively from the front reference. If visible center crease lines are present, preserve them cleanly and consistently.';
+}
+
+function buildTrouserFitInstructions(input: GenerateProductViewInput) {
+  if (input.trouserFit === 'Slim Fit') {
+    return 'Fit rule: keep a slim formal silhouette, not skinny/tight and not relaxed or baggy.';
+  }
+
+  if (input.trouserFit === 'Regular Fit') {
+    return 'Fit rule: keep a regular formal trouser silhouette. Do not make it skinny, overly tapered, relaxed, or baggy.';
+  }
+
+  if (input.trouserFit === 'Relaxed Fit') {
+    return 'Fit rule: keep a relaxed trouser silhouette only as selected, while preserving formal trouser structure.';
+  }
+
+  const fitText = input.fitType?.trim();
+  return fitText
+    ? `Fit rule: preserve the provided fit wording "${fitText}" while matching the uploaded trouser silhouette.`
+    : 'Fit rule: auto detect the trouser silhouette from the uploaded reference and preserve it without making the trouser skinny, baggy, or redesigned.';
+}
+
+function buildTrouserFabricFinishInstructions(input: GenerateProductViewInput) {
+  if (input.trouserFabricFinish && input.trouserFabricFinish !== 'Auto Detect') {
+    return `Fabric finish rule: preserve the ${input.trouserFabricFinish.toLowerCase()} finish from the fabric close-up. Match true color, weave, fiber appearance, texture, and formal fabric finish.`;
+  }
+
+  return 'Fabric finish rule: use the fabric close-up as the true color, weave, texture, fiber appearance, and finish source of truth. Preserve fine woven/lycra texture if visible.';
+}
+
+export function buildTrouserForbiddenDesignInstructions() {
+  return [
+    'Forbidden trouser elements: do not add any logo, brand tab, label, side tab, back tab, patch, embroidery, text, contrast panel, cargo pocket, extra pocket, decorative zipper, extra button, extra seam, or design element not visible on the wearable trouser.',
+    'Do not add black label/logo/tab anywhere on the model-worn trouser.',
+    'Do not treat hanging tag, price tag, black MITTY tag, paper tag, packaging tag, hanger clip, or retail label as a wearable trouser logo.',
+    'A MITTY hanging tag or retail tag is not a wearable logo and must not become a side tab, back tab, patch, label, or brand mark on the trouser.',
+    'Do not change the trouser into jeans, chinos, cargo pants, joggers, or casual pants.',
+  ].join(' ');
+}
+
+export function buildTrouserAccuracyInstructions(input: GenerateProductViewInput) {
+  return [
+    'Trouser Accuracy Lock:',
+    `- Front Pocket Type: ${input.trouserFrontPocketType || 'Auto Detect'}`,
+    `- Back Pocket Type: ${input.trouserBackPocketType || 'Auto Detect'}`,
+    `- Visible Logo on Worn Trouser: ${input.trouserVisibleLogo || 'Auto Detect'}`,
+    `- Front Style: ${input.trouserFrontStyle || 'Auto Detect'}`,
+    `- Crease: ${input.trouserCrease || 'Auto Detect'}`,
+    `- Fit: ${input.trouserFit || 'Auto Detect'}`,
+    `- Fabric Finish: ${input.trouserFabricFinish || 'Auto Detect'}`,
+    `- Tag / Branding Visibility: ${input.trouserTagBrandingVisibility || 'Auto Detect'}`,
+    'Source of truth: use uploaded trouser reference images as the exact source of truth.',
+    'Front reference = front construction, front pockets, waistband, closure, crease, fit, silhouette, and formal trouser structure.',
+    'Back reference = back pockets, buttons, waistband, belt loops, back construction, back crease, and pocket placement.',
+    'Fabric close-up = true color, weave, texture, fiber appearance, and finish.',
+    'Generated trouser must match the uploaded trouser, not a redesigned or inspired trouser.',
+    'Preserve exact color, fabric finish, waistband, belt loops, closure, pockets, buttons, pleats/front style, crease lines, fit, silhouette, and formal trouser structure.',
+    buildTrouserForbiddenDesignInstructions(),
+    buildTrouserLogoInstructions(input),
+    buildTrouserFrontPocketInstructions(input),
+    buildTrouserBackPocketInstructions(input),
+    buildTrouserFrontStyleInstructions(input),
+    buildTrouserCreaseInstructions(input),
+    buildTrouserFitInstructions(input),
+    buildTrouserFabricFinishInstructions(input),
+  ].join('\n');
+}
+
 export function buildProductAccuracyInstructions(input: GenerateProductViewInput) {
+  if (input.productCategory === 'Trousers') {
+    return [
+      buildProductLockSummary(input),
+      buildReferencePhotoInstructions(input),
+      buildStudioConsistencyInstructions(input),
+      buildTrouserAccuracyInstructions(input),
+    ].join('\n');
+  }
+
   const genericRules = [
     buildProductLockSummary(input),
     buildReferencePhotoInstructions(input),

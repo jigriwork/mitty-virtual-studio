@@ -29,6 +29,14 @@ export const GenerateProductViewInputSchema = z.object({
   outputBackgroundStyle: z.enum(['Clean Light Grey Studio', 'Clean Off-White Studio', 'Transparent/Isolated Product Style later', 'Premium Beige Studio']).optional().describe('Selected studio background style for consistent output.'),
   fitType: z.string().optional().describe('The fit type of the trousers (e.g., Slim, Regular).'),
   materialStretch: z.enum(['Yes', 'No']).optional().describe('Whether the trouser material is stretchable.'),
+  trouserFrontPocketType: z.enum(['Auto Detect', 'Slant Side Pockets', 'Straight Side Pockets', 'No Visible Front Pockets']).optional().describe('Trouser accuracy lock: front pocket type.'),
+  trouserBackPocketType: z.enum(['Auto Detect', 'Two Welt Pockets With Buttons', 'Two Welt Pockets No Buttons', 'One Back Pocket', 'No Back Pockets']).optional().describe('Trouser accuracy lock: back pocket type.'),
+  trouserVisibleLogo: z.enum(['Auto Detect', 'No visible logo', 'Tag only']).optional().describe('Trouser accuracy lock: whether visible logos should appear on the worn trouser.'),
+  trouserFrontStyle: z.enum(['Auto Detect', 'Flat Front', 'Single Pleat', 'Double Pleat']).optional().describe('Trouser accuracy lock: flat front or pleat style.'),
+  trouserCrease: z.enum(['Auto Detect', 'Visible Center Crease', 'No Visible Crease']).optional().describe('Trouser accuracy lock: crease visibility.'),
+  trouserFit: z.enum(['Auto Detect', 'Slim Fit', 'Regular Fit', 'Relaxed Fit']).optional().describe('Trouser accuracy lock: structured fit selection.'),
+  trouserFabricFinish: z.enum(['Auto Detect', 'Fine Woven', 'Smooth Formal', 'Lycra Blend Look', 'Textured Weave']).optional().describe('Trouser accuracy lock: fabric finish.'),
+  trouserTagBrandingVisibility: z.enum(['Auto Detect', 'No visible tags or branding anywhere', 'Show only if clearly visible in source', 'Flatlay/product-only tag allowed if clearly visible in source']).optional().describe('Trouser accuracy lock: tag and branding visibility policy.'),
 
   // Perfume fields
   fragranceName: z.string().optional().describe('The name of the fragrance.'),
