@@ -89,6 +89,7 @@ const readCatalogDefaults = (): CatalogDefaults => {
 
 export function CatalogBuilder({ results }: CatalogBuilderProps) {
   const [items, setItems] = useState<SavedCatalogItem[]>([]);
+  const [itemsLoaded, setItemsLoaded] = useState(false);
   const [formValues, setFormValues] = useState<CatalogFormValues>(() => createCatalogDefaults(results));
   const [catalogDefaults, setCatalogDefaults] = useState<CatalogDefaults>(() => mergeCatalogDefaults(null));
   const [samePrice, setSamePrice] = useState(false);
@@ -108,15 +109,21 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
       }
     } catch {
       setItems([]);
+    } finally {
+      setItemsLoaded(true);
     }
 
     setCatalogDefaults(readCatalogDefaults());
   }, []);
 
   useEffect(() => {
+    if (!itemsLoaded) {
+      return;
+    }
+
     window.localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(items));
     window.dispatchEvent(new Event('mitty-catalog-updated'));
-  }, [items]);
+  }, [items, itemsLoaded]);
 
   useEffect(() => {
     setFormValues(createCatalogDefaults(results, catalogDefaults));
