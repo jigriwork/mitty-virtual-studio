@@ -115,6 +115,7 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
 
   useEffect(() => {
     window.localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(items));
+    window.dispatchEvent(new Event('mitty-catalog-updated'));
   }, [items]);
 
   useEffect(() => {

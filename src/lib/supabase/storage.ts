@@ -10,6 +10,20 @@ const dataUriToBlob = async (dataUri: string): Promise<Blob> => {
   return response.blob();
 };
 
+const getUploadErrorMessage = (message: string) => {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes('bucket') || normalized.includes('not found')) {
+    return 'Image storage is not ready. Please ask the administrator to finish storage setup.';
+  }
+
+  if (normalized.includes('row-level security') || normalized.includes('policy') || normalized.includes('unauthorized')) {
+    return 'This account does not have permission to upload images yet.';
+  }
+
+  return message || 'Image upload failed.';
+};
+
 export const sanitizeStorageSegment = (value: string) =>
   value
     .trim()
@@ -37,7 +51,7 @@ export const uploadDataUriToPublicStorage = async ({
   });
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error(getUploadErrorMessage(error.message));
   }
 
   return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
@@ -60,7 +74,7 @@ export const uploadFileToPublicStorage = async ({
   });
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error(getUploadErrorMessage(error.message));
   }
 
   return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;

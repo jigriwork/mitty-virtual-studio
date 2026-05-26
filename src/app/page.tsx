@@ -19,6 +19,7 @@ import { AuthGate, type AuthContextValue } from '@/components/auth-gate';
 import { CatalogDefaultsSettings } from '@/components/catalog-defaults-settings';
 import { PlaceholderSection } from '@/components/placeholder-section';
 import { ProductForm } from '@/components/product-form';
+import { ProductHistory } from '@/components/product-history';
 import { ResultsDisplay } from '@/components/results-display';
 import { StudioWorkspace } from '@/components/studio-workspace';
 import { useToast } from '@/hooks/use-toast';
@@ -625,6 +626,10 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
   const renderSection = () => {
     if (activeSection === 'studio' || activeSection === 'generate') {
       return studioContent;
+    }
+
+    if (activeSection === 'products') {
+      return <ProductHistory />;
     }
 
     if (activeSection === 'staff' && auth.role !== 'owner') {
