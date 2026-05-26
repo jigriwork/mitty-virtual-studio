@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ImageCard } from './image-card';
 import { SeoPreviewPanel } from './seo-preview-panel';
 import { GenerationProgressPanel } from './generation-progress-panel';
+import { CatalogBuilder } from './catalog-builder';
 import { upscaleToBlob } from '@/lib/image-upscaler';
 
 interface ResultsDisplayProps {
@@ -219,6 +220,8 @@ export function ResultsDisplay({
       </div>
 
       <SeoPreviewPanel results={results} />
+
+      <CatalogBuilder results={results} />
         
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           {isPerfume ? (
