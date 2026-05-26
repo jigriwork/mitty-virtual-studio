@@ -91,6 +91,39 @@ export type SavedCatalogItem = CatalogFormValues & {
 };
 
 export const CATALOG_STORAGE_KEY = 'mitty-catalog-builder-items';
+export const CATALOG_DEFAULTS_STORAGE_KEY = 'mitty-catalog-defaults';
+
+export type CatalogDefaults = {
+  defaultGstPercent: string;
+  defaultPickupAddressCode: string;
+  defaultReturnExchangeCondition: string;
+  shirtHsnCode: string;
+  trouserHsnCode: string;
+  jeansHsnCode: string;
+  shoesHsnCode: string;
+  perfumeHsnCode: string;
+  shirtSizeChartUrl: string;
+  trouserSizeChartUrl: string;
+  jeansSizeChartUrl: string;
+  shoesSizeChartUrl: string;
+  perfumeSizeChartUrl: string;
+};
+
+export const EMPTY_CATALOG_DEFAULTS: CatalogDefaults = {
+  defaultGstPercent: '',
+  defaultPickupAddressCode: '',
+  defaultReturnExchangeCondition: '3 days return/exchange only for size issues',
+  shirtHsnCode: '',
+  trouserHsnCode: '',
+  jeansHsnCode: '',
+  shoesHsnCode: '',
+  perfumeHsnCode: '',
+  shirtSizeChartUrl: '',
+  trouserSizeChartUrl: '',
+  jeansSizeChartUrl: '',
+  shoesSizeChartUrl: '',
+  perfumeSizeChartUrl: '',
+};
 
 export const getDefaultSizeType = (category: GenerationResults['productCategory']) => {
   if (category === 'Shoes') return 'Shoe Size';
@@ -98,7 +131,40 @@ export const getDefaultSizeType = (category: GenerationResults['productCategory'
   return 'Standard';
 };
 
-export const createCatalogDefaults = (results: GenerationResults): CatalogFormValues => ({
+export const mergeCatalogDefaults = (defaults: Partial<CatalogDefaults> | null | undefined): CatalogDefaults => ({
+  ...EMPTY_CATALOG_DEFAULTS,
+  ...(defaults || {}),
+});
+
+export const getCategoryHsnCode = (
+  category: GenerationResults['productCategory'],
+  defaults: CatalogDefaults
+) => {
+  if (category === 'Shirt') return defaults.shirtHsnCode;
+  if (category === 'Trousers') return defaults.trouserHsnCode;
+  if (category === 'Jeans') return defaults.jeansHsnCode;
+  if (category === 'Shoes') return defaults.shoesHsnCode;
+  return defaults.perfumeHsnCode;
+};
+
+export const getCategorySizeChartUrl = (
+  category: GenerationResults['productCategory'],
+  defaults: CatalogDefaults
+) => {
+  if (category === 'Shirt') return defaults.shirtSizeChartUrl;
+  if (category === 'Trousers') return defaults.trouserSizeChartUrl;
+  if (category === 'Jeans') return defaults.jeansSizeChartUrl;
+  if (category === 'Shoes') return defaults.shoesSizeChartUrl;
+  return defaults.perfumeSizeChartUrl;
+};
+
+export const createCatalogDefaults = (
+  results: GenerationResults,
+  savedDefaults?: Partial<CatalogDefaults> | null
+): CatalogFormValues => {
+  const defaults = mergeCatalogDefaults(savedDefaults);
+
+  return {
   productCode: '',
   amazonAsin: '',
   name: results.productTitle || results.seoTitle || '',
@@ -110,22 +176,23 @@ export const createCatalogDefaults = (results: GenerationResults): CatalogFormVa
   packagingBreadth: '',
   packagingHeight: '',
   packagingWeight: '',
-  gstPercent: '5',
+  gstPercent: defaults.defaultGstPercent || '5',
   productType: results.productCategory || '',
   sizeType: getDefaultSizeType(results.productCategory),
   colour: results.detectedColor || results.color || '',
   description: results.longDescription || results.productDescription || '',
-  returnExchangeCondition: 'Standard return/exchange policy',
+  returnExchangeCondition: defaults.defaultReturnExchangeCondition,
   visibility: 'Visible',
-  sizeChartUrl: '',
-  pickupAddressCode: '',
-  hsnCode: '',
+  sizeChartUrl: getCategorySizeChartUrl(results.productCategory, defaults),
+  pickupAddressCode: defaults.defaultPickupAddressCode,
+  hsnCode: getCategoryHsnCode(results.productCategory, defaults),
   customisationId: '',
   associatedPixel: '',
   video1: '',
   video2: '',
   sizeRows: [{ id: crypto.randomUUID(), size: '', quantity: '1' }],
-});
+  };
+};
 
 const escapeCsvValue = (value: string) => {
   const normalized = value ?? '';

@@ -4,13 +4,18 @@ import { Download, Eye, Loader2, Plus, Trash2, Upload } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { GenerationResults } from '@/lib/types';
 import {
+  CATALOG_DEFAULTS_STORAGE_KEY,
   CATALOG_STORAGE_KEY,
+  type CatalogDefaults,
   type CatalogFormValues,
   type CatalogImageUrls,
   type CatalogSizeRow,
   createCatalogDefaults,
   downloadCsv,
   exportMittyCatalogCsv,
+  getCategoryHsnCode,
+  getCategorySizeChartUrl,
+  mergeCatalogDefaults,
   type SavedCatalogItem,
 } from '@/lib/catalog';
 import {
@@ -28,6 +33,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -72,9 +78,20 @@ const extensionFromFile = (file: File) => {
   return extension || 'png';
 };
 
+const readCatalogDefaults = (): CatalogDefaults => {
+  try {
+    const stored = window.localStorage.getItem(CATALOG_DEFAULTS_STORAGE_KEY);
+    return stored ? mergeCatalogDefaults(JSON.parse(stored) as Partial<CatalogDefaults>) : mergeCatalogDefaults(null);
+  } catch {
+    return mergeCatalogDefaults(null);
+  }
+};
+
 export function CatalogBuilder({ results }: CatalogBuilderProps) {
   const [items, setItems] = useState<SavedCatalogItem[]>([]);
   const [formValues, setFormValues] = useState<CatalogFormValues>(() => createCatalogDefaults(results));
+  const [catalogDefaults, setCatalogDefaults] = useState<CatalogDefaults>(() => mergeCatalogDefaults(null));
+  const [samePrice, setSamePrice] = useState(false);
   const [open, setOpen] = useState(false);
   const [showCatalog, setShowCatalog] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -92,6 +109,8 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
     } catch {
       setItems([]);
     }
+
+    setCatalogDefaults(readCatalogDefaults());
   }, []);
 
   useEffect(() => {
@@ -99,12 +118,70 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
   }, [items]);
 
   useEffect(() => {
-    setFormValues(createCatalogDefaults(results));
+    setFormValues(createCatalogDefaults(results, catalogDefaults));
     setSizeChartFile(null);
-  }, [results]);
+    setSamePrice(false);
+  }, [results, catalogDefaults]);
+
+  useEffect(() => {
+    const refreshDefaults = () => setCatalogDefaults(readCatalogDefaults());
+    window.addEventListener('storage', refreshDefaults);
+    window.addEventListener('mitty-catalog-defaults-updated', refreshDefaults);
+    return () => {
+      window.removeEventListener('storage', refreshDefaults);
+      window.removeEventListener('mitty-catalog-defaults-updated', refreshDefaults);
+    };
+  }, []);
 
   const updateField = (field: keyof CatalogFormValues, value: string) => {
-    setFormValues((prev) => ({ ...prev, [field]: value }));
+    setFormValues((prev) => {
+      if (samePrice && field === 'mrp') {
+        return { ...prev, mrp: value, sellingPrice: value, costPrice: value };
+      }
+
+      return { ...prev, [field]: value };
+    });
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      const latestDefaults = readCatalogDefaults();
+      setCatalogDefaults(latestDefaults);
+      setFormValues((prev) => ({
+        ...createCatalogDefaults(results, latestDefaults),
+        productCode: prev.productCode,
+        amazonAsin: prev.amazonAsin,
+        name: prev.name,
+        skuBase: prev.skuBase,
+        sellingPrice: prev.sellingPrice,
+        mrp: prev.mrp,
+        costPrice: prev.costPrice,
+        packagingLength: prev.packagingLength,
+        packagingBreadth: prev.packagingBreadth,
+        packagingHeight: prev.packagingHeight,
+        packagingWeight: prev.packagingWeight,
+        colour: prev.colour,
+        description: prev.description,
+        customisationId: prev.customisationId,
+        associatedPixel: prev.associatedPixel,
+        video1: prev.video1,
+        video2: prev.video2,
+        sizeRows: prev.sizeRows,
+      }));
+    }
+
+    setOpen(nextOpen);
+  };
+
+  const updateSamePrice = (checked: boolean) => {
+    setSamePrice(checked);
+    if (checked) {
+      setFormValues((prev) => ({
+        ...prev,
+        sellingPrice: prev.mrp,
+        costPrice: prev.mrp,
+      }));
+    }
   };
 
   const updateSizeRow = (id: string, patch: Partial<CatalogSizeRow>) => {
@@ -128,8 +205,17 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
     }));
   };
 
-  const validateRequiredFields = () => {
-    const missing = requiredFieldNames.filter((field) => !String(formValues[field] || '').trim());
+  const applyDefaultFallbacks = (values: CatalogFormValues, defaults: CatalogDefaults): CatalogFormValues => ({
+    ...values,
+    gstPercent: values.gstPercent.trim() || defaults.defaultGstPercent,
+    pickupAddressCode: values.pickupAddressCode.trim() || defaults.defaultPickupAddressCode,
+    returnExchangeCondition: values.returnExchangeCondition.trim() || defaults.defaultReturnExchangeCondition,
+    hsnCode: values.hsnCode.trim() || getCategoryHsnCode(results.productCategory, defaults),
+    sizeChartUrl: values.sizeChartUrl.trim() || getCategorySizeChartUrl(results.productCategory, defaults),
+  });
+
+  const validateRequiredFields = (values: CatalogFormValues) => {
+    const missing = requiredFieldNames.filter((field) => !String(values[field] || '').trim());
     if (missing.length > 0) {
       toast({
         variant: 'destructive',
@@ -139,7 +225,7 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
       return false;
     }
 
-    if (!formValues.name.trim() || !formValues.description.trim()) {
+    if (!values.name.trim() || !values.description.trim()) {
       toast({
         variant: 'destructive',
         title: 'Catalog fields missing',
@@ -199,19 +285,25 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
   };
 
   const saveProduct = async () => {
-    if (!validateRequiredFields()) return;
+    const latestDefaults = readCatalogDefaults();
+    const valuesForSave = applyDefaultFallbacks(formValues, latestDefaults);
+    setFormValues(valuesForSave);
+
+    if (!validateRequiredFields(valuesForSave)) return;
 
     setSaving(true);
-    const folder = sanitizeStorageSegment(formValues.productCode);
+    const folder = sanitizeStorageSegment(valuesForSave.productCode);
 
     try {
       const [imageUrls, sizeChartUrl] = await Promise.all([
         uploadProductImages(folder),
-        uploadSizeChartIfNeeded(folder),
+        sizeChartFile
+          ? uploadSizeChartIfNeeded(folder)
+          : Promise.resolve(valuesForSave.sizeChartUrl.trim()),
       ]);
 
       const item: SavedCatalogItem = {
-        ...formValues,
+        ...valuesForSave,
         sizeChartUrl,
         id: crypto.randomUUID(),
         createdAt: new Date().toISOString(),
@@ -230,7 +322,7 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
       if (shouldSaveIncomplete) {
         setItems((prev) => [
           {
-            ...formValues,
+            ...valuesForSave,
             id: crypto.randomUUID(),
             createdAt: new Date().toISOString(),
             imageUrls: { image1: '', image2: '', image3: '', image4: '' },
@@ -335,7 +427,7 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
         </div>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add product to catalog</DialogTitle>
@@ -345,13 +437,42 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
           </DialogHeader>
 
           <div className="grid gap-6">
+            <p className="rounded-lg border border-[#d8c39b] bg-[#fff8ea] px-3 py-2 text-sm text-[#7a5726]">
+              Defaults applied from Catalog Settings. You can edit before saving.
+            </p>
+
+            <div className="grid gap-3 rounded-lg border border-black/10 p-4">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="same-price"
+                  checked={samePrice}
+                  onCheckedChange={(checked) => updateSamePrice(checked === true)}
+                />
+                <Label htmlFor="same-price">Use same value for MRP, Selling Price and Cost Price</Label>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                <Field label="MRP" value={formValues.mrp} onChange={(value) => updateField('mrp', value)} required />
+                <Field
+                  label="Selling Price"
+                  value={formValues.sellingPrice}
+                  onChange={(value) => updateField('sellingPrice', value)}
+                  required
+                  disabled={samePrice}
+                />
+                <Field
+                  label="Cost Price"
+                  value={formValues.costPrice}
+                  onChange={(value) => updateField('costPrice', value)}
+                  required
+                  disabled={samePrice}
+                />
+              </div>
+            </div>
+
             <div className="grid gap-4 md:grid-cols-3">
               <Field label="Product Code" value={formValues.productCode} onChange={(value) => updateField('productCode', value)} required />
               <Field label="SKU Base / Sku Id" value={formValues.skuBase} onChange={(value) => updateField('skuBase', value)} required />
               <Field label="Amazon ASIN" value={formValues.amazonAsin} onChange={(value) => updateField('amazonAsin', value)} />
-              <Field label="Selling Price" value={formValues.sellingPrice} onChange={(value) => updateField('sellingPrice', value)} required />
-              <Field label="MRP" value={formValues.mrp} onChange={(value) => updateField('mrp', value)} required />
-              <Field label="Cost Price" value={formValues.costPrice} onChange={(value) => updateField('costPrice', value)} required />
               <Field label="GST %" value={formValues.gstPercent} onChange={(value) => updateField('gstPercent', value)} required />
               <Field label="Product Type" value={formValues.productType} onChange={(value) => updateField('productType', value)} required />
               <Field label="Size Type" value={formValues.sizeType} onChange={(value) => updateField('sizeType', value)} required />
@@ -437,11 +558,13 @@ function Field({
   value,
   onChange,
   required,
+  disabled,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div className="grid gap-2">
@@ -449,7 +572,7 @@ function Field({
         {label}
         {required && <span className="text-destructive"> *</span>}
       </Label>
-      <Input value={value} onChange={(event) => onChange(event.target.value)} />
+      <Input value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled} />
     </div>
   );
 }
