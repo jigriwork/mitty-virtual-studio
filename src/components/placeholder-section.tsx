@@ -17,7 +17,7 @@ const copy: Record<Exclude<AppSection, 'studio' | 'generate'>, { title: string; 
   },
   staff: {
     title: 'Staff Management',
-    body: 'Staff Management — coming soon. Add staff users in Supabase Auth for now.',
+    body: 'Staff Management is coming soon. Add team members through the admin process for now.',
   },
 };
 

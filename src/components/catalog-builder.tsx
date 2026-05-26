@@ -432,7 +432,7 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
           <DialogHeader>
             <DialogTitle>Add product to catalog</DialogTitle>
             <DialogDescription>
-              Save public Supabase image URLs and export in the Mitty catalog template.
+              Save public image URLs and export in the Mitty catalog template.
             </DialogDescription>
           </DialogHeader>
 
