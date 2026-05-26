@@ -1,6 +1,9 @@
 'use client';
 
 import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+let supabaseBrowserClient: SupabaseClient | null = null;
 
 export const hasSupabaseBrowserConfig = () =>
   Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
@@ -13,5 +16,9 @@ export const getSupabaseBrowserClient = () => {
     throw new Error('Authentication service configuration is missing.');
   }
 
-  return createClient(supabaseUrl, supabaseAnonKey);
+  if (!supabaseBrowserClient) {
+    supabaseBrowserClient = createClient(supabaseUrl, supabaseAnonKey);
+  }
+
+  return supabaseBrowserClient;
 };
