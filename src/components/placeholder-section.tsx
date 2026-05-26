@@ -15,6 +15,10 @@ const copy: Record<Exclude<AppSection, 'studio' | 'generate'>, { title: string; 
     title: 'Settings',
     body: 'Brand defaults, staff access, export preferences, and AI controls will be configured here soon.',
   },
+  staff: {
+    title: 'Staff Management',
+    body: 'Staff Management — coming soon. Add staff users in Supabase Auth for now.',
+  },
 };
 
 export function PlaceholderSection({ section }: { section: Exclude<AppSection, 'studio' | 'generate'> }) {

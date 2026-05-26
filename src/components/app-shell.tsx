@@ -3,8 +3,10 @@
 import {
   CheckCircle2,
   LayoutDashboard,
+  LogOut,
   Package,
   Settings,
+  Users,
   Wand2,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -12,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { MittyLogo } from '@/components/mitty-logo';
 import { cn } from '@/lib/utils';
 
-export type AppSection = 'studio' | 'products' | 'generate' | 'review' | 'settings';
+export type AppSection = 'studio' | 'products' | 'generate' | 'review' | 'settings' | 'staff';
 
 type NavItem = {
   id: AppSection;
@@ -26,30 +28,38 @@ const navItems: NavItem[] = [
   { id: 'generate', label: 'Generate', icon: Wand2 },
   { id: 'review', label: 'Review', icon: CheckCircle2 },
   { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'staff', label: 'Staff', icon: Users },
 ];
 
 type AppShellProps = {
   activeSection: AppSection;
   onSectionChange: (section: AppSection) => void;
   children: ReactNode;
+  userEmail: string;
+  userRole: 'owner' | 'staff';
+  onLogout: () => void;
 };
 
-export function AppShell({ activeSection, onSectionChange, children }: AppShellProps) {
+export function AppShell({ activeSection, onSectionChange, children, userEmail, userRole, onLogout }: AppShellProps) {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(183,141,74,0.12),_transparent_32rem),linear-gradient(180deg,_#faf7f0_0%,_#f4efe6_100%)] text-foreground">
-      <SidebarNav activeSection={activeSection} onSectionChange={onSectionChange} />
+      <SidebarNav activeSection={activeSection} onSectionChange={onSectionChange} userRole={userRole} />
       <div className="min-h-screen min-w-0 lg:pl-72">
-        <Header />
+        <Header userEmail={userEmail} userRole={userRole} onLogout={onLogout} />
         <main className="min-w-0 px-4 pb-28 pt-4 sm:px-6 lg:px-8 lg:pb-8">
           {children}
         </main>
       </div>
-      <MobileNav activeSection={activeSection} onSectionChange={onSectionChange} />
+      <MobileNav activeSection={activeSection} onSectionChange={onSectionChange} userRole={userRole} />
     </div>
   );
 }
 
-function Header() {
+function Header({
+  userEmail,
+  userRole,
+  onLogout,
+}: Pick<AppShellProps, 'userEmail' | 'userRole' | 'onLogout'>) {
   return (
     <header className="sticky top-0 z-30 border-b border-black/10 bg-[#faf7f0]/90 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center justify-between gap-3">
@@ -64,6 +74,16 @@ function Header() {
             </h1>
           </div>
         </div>
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="hidden min-w-0 text-right sm:block">
+            <p className="truncate text-sm font-medium text-[#171717]">{userEmail}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8a6635]">{userRole}</p>
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={onLogout} className="h-10 gap-2">
+            <LogOut className="h-4 w-4" />
+            Logout
+          </Button>
+        </div>
       </div>
     </header>
   );
@@ -72,7 +92,10 @@ function Header() {
 function SidebarNav({
   activeSection,
   onSectionChange,
-}: Pick<AppShellProps, 'activeSection' | 'onSectionChange'>) {
+  userRole,
+}: Pick<AppShellProps, 'activeSection' | 'onSectionChange' | 'userRole'>) {
+  const visibleNavItems = navItems.filter((item) => item.id !== 'staff' || userRole === 'owner');
+
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 border-r border-black/10 bg-[#111111] p-4 text-white lg:block">
       <div className="flex h-full flex-col">
@@ -86,7 +109,7 @@ function SidebarNav({
           </div>
         </div>
         <nav className="space-y-2">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavButton
               key={item.id}
               item={item}
@@ -110,11 +133,14 @@ function SidebarNav({
 function MobileNav({
   activeSection,
   onSectionChange,
-}: Pick<AppShellProps, 'activeSection' | 'onSectionChange'>) {
+  userRole,
+}: Pick<AppShellProps, 'activeSection' | 'onSectionChange' | 'userRole'>) {
+  const visibleNavItems = navItems.filter((item) => item.id !== 'staff' || userRole === 'owner');
+
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-[#111111]/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 text-white shadow-2xl backdrop-blur-xl lg:hidden">
-      <div className="mx-auto grid max-w-xl grid-cols-5 gap-1">
-        {navItems.map((item) => (
+      <div className="mx-auto grid max-w-xl auto-cols-fr grid-flow-col gap-1">
+        {visibleNavItems.map((item) => (
           <NavButton
             key={item.id}
             item={item}

@@ -15,6 +15,7 @@ import { generatePerfumeBoxBack } from '@/ai/flows/generate-perfume-box-back';
 import { generatePerfumeHeroView } from '@/ai/flows/generate-perfume-hero-view';
 
 import { AppShell, type AppSection } from '@/components/app-shell';
+import { AuthGate, type AuthContextValue } from '@/components/auth-gate';
 import { PlaceholderSection } from '@/components/placeholder-section';
 import { ProductForm } from '@/components/product-form';
 import { ResultsDisplay } from '@/components/results-display';
@@ -130,6 +131,10 @@ const createSeoOnlyResult = (
 });
 
 export default function Home() {
+  return <AuthGate>{(auth) => <AuthenticatedStudio auth={auth} />}</AuthGate>;
+}
+
+function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
   const [activeSection, setActiveSection] = useState<AppSection>('studio');
   const [results, setResults] = useState<GenerationResults | null>(null);
   const [productImageUris, setProductImageUris] = useState<{[key:string]: string}>({});
@@ -621,11 +626,23 @@ export default function Home() {
       return studioContent;
     }
 
+    if (activeSection === 'staff' && auth.role !== 'owner') {
+      return <PlaceholderSection section="settings" />;
+    }
+
     return <PlaceholderSection section={activeSection} />;
   };
 
   return (
-    <AppShell activeSection={activeSection} onSectionChange={setActiveSection}>
+    <AppShell
+      activeSection={activeSection}
+      onSectionChange={setActiveSection}
+      userEmail={auth.email}
+      userRole={auth.role}
+      onLogout={() => {
+        void auth.logout();
+      }}
+    >
       {renderSection()}
     </AppShell>
   );
