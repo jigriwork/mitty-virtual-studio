@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { generateHdFlatlay } from '@/ai/flows/generate-hd-flatlay';
@@ -29,10 +29,18 @@ import type {
   GenerationResults,
   ProductFormValues,
   SeoContentPack,
+  AvailableSizeRow,
 } from '@/lib/types';
 import { productFormSchema } from '@/lib/types';
 import { getSafeGenerationErrorMessage } from '@/lib/ai-error-message';
 import { optimizeImage, estimatePayload, type OptimizedImage } from '@/lib/image-compression';
+import {
+  WORKFLOW_DRAFT_UPDATED_EVENT,
+  getSerializableProductFormDraft,
+  readWorkflowDraft,
+  writeWorkflowDraft,
+} from '@/lib/workflow-draft';
+import { incrementProductsGenerated } from '@/lib/workflow-metrics';
 import type { GenerateProductViewInput } from '@/ai/flows/types';
 
 type GeneratingState = {
@@ -48,6 +56,27 @@ type GeneratingState = {
 type ProductCategory = ProductFormValues['productCategory'];
 
 const progressBands = [0, 10, 20, 40, 60, 80, 100];
+
+const defaultProductFormValues: ProductFormValues = {
+  gender: 'Male',
+  productCategory: 'Shirt',
+  fabricType: '',
+  color: '',
+  pattern: '',
+  sleeveType: 'Full Sleeve',
+  fitType: '',
+  materialStretch: 'No',
+  frontPocket: 'Auto Detect',
+  patternOverride: 'Auto Detect',
+  collarType: 'Auto Detect',
+  visibleLogo: 'Auto Detect',
+  outputBackgroundStyle: 'Clean Light Grey Studio',
+  mrp: '',
+  availableSizes: [],
+  fragranceName: '',
+  fragranceFamily: '',
+  sizeMl: '',
+};
 
 const imageStepIdsByCategory: Record<ProductCategory, string[]> = {
   Shirt: ['front', 'side', 'back', 'flatlay'],
@@ -124,12 +153,16 @@ const createSeoOnlyResult = (
   textResult: SeoContentPack,
   productCategory: ProductCategory,
   color: string,
-  fitType?: string
+  fitType?: string,
+  mrp?: string,
+  availableSizes?: AvailableSizeRow[]
 ): GenerationResults => ({
   ...textResult,
   productCategory,
   color,
   fitType,
+  mrp,
+  availableSizes,
 });
 
 export default function Home() {
@@ -154,29 +187,87 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
     flatlay: false,
     heroView: false,
   });
+  const [draftHydrated, setDraftHydrated] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<number | undefined>(undefined);
   const { toast } = useToast();
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
-    defaultValues: {
-      gender: 'Male',
-      productCategory: 'Shirt',
-      fabricType: '',
-      color: '',
-      pattern: '',
-      sleeveType: 'Full Sleeve',
-      fitType: '',
-      materialStretch: 'No',
-      frontPocket: 'Auto Detect',
-      patternOverride: 'Auto Detect',
-      collarType: 'Auto Detect',
-      visibleLogo: 'Auto Detect',
-      outputBackgroundStyle: 'Clean Light Grey Studio',
-      fragranceName: '',
-      fragranceFamily: '',
-      sizeMl: '',
-    },
+    defaultValues: defaultProductFormValues,
   });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const restoreDraft = async () => {
+      const draft = await readWorkflowDraft();
+
+      if (cancelled) {
+        return;
+      }
+
+      if (draft?.formValues) {
+        form.reset({
+          ...defaultProductFormValues,
+          ...draft.formValues,
+        });
+      }
+
+      if (draft?.results) {
+        setResults(draft.results);
+      }
+
+      if (draft?.productImageUris) {
+        setProductImageUris(draft.productImageUris);
+      }
+
+      setDraftSavedAt(draft?.updatedAt);
+      setDraftHydrated(true);
+    };
+
+    void restoreDraft();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [form]);
+
+  useEffect(() => {
+    const handleDraftUpdated = () => setDraftSavedAt(Date.now());
+
+    window.addEventListener(WORKFLOW_DRAFT_UPDATED_EVENT, handleDraftUpdated);
+    return () => window.removeEventListener(WORKFLOW_DRAFT_UPDATED_EVENT, handleDraftUpdated);
+  }, []);
+
+  useEffect(() => {
+    if (!draftHydrated) {
+      return;
+    }
+
+    const subscription = form.watch((values) => {
+      void writeWorkflowDraft({
+        formValues: getSerializableProductFormDraft(values as ProductFormValues),
+      });
+    });
+
+    return () => subscription.unsubscribe();
+  }, [draftHydrated, form]);
+
+  useEffect(() => {
+    if (!draftHydrated) {
+      return;
+    }
+
+    void writeWorkflowDraft({ results });
+  }, [draftHydrated, results]);
+
+  useEffect(() => {
+    if (!draftHydrated) {
+      return;
+    }
+
+    void writeWorkflowDraft({ productImageUris });
+  }, [draftHydrated, productImageUris]);
 
   const onSubmit = async (data: ProductFormValues) => {
     setGenerating({ all: true, frontView: false, sideView: false, backView: false, textureView: false, flatlay: false, heroView: false });
@@ -397,7 +488,9 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
           textResult,
           data.productCategory,
           detectedColor,
-          data.fitType
+          data.fitType,
+          data.mrp?.trim(),
+          data.availableSizes
         )
       );
 
@@ -441,6 +534,7 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
       markStepCompleted('export');
       markStepActive('done');
       markStepCompleted('done');
+      incrementProductsGenerated();
     } catch (e) {
       console.error(e);
       const safeReason = failedReason || markStepFailed(lastStepId, e);
@@ -603,6 +697,8 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
 
   const studioContent = (
     <StudioWorkspace
+      draftReady={draftHydrated}
+      draftSavedAt={draftSavedAt}
       formPanel={<ProductForm form={form} onSubmit={onSubmit} isLoading={generating.all} />}
       resultsPanel={
         <ResultsDisplay
@@ -624,7 +720,7 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
   );
 
   const renderSection = () => {
-    if (activeSection === 'studio' || activeSection === 'generate') {
+    if (activeSection === 'studio') {
       return studioContent;
     }
 

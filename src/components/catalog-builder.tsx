@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, Eye, Loader2, Plus, Trash2, Upload } from 'lucide-react';
+import { Download, Eye, Loader2, Plus, Share2, Trash2, Upload } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { GenerationResults } from '@/lib/types';
 import {
@@ -16,11 +16,13 @@ import {
   getCategoryHsnCode,
   getCategorySizeChartUrl,
   mergeCatalogDefaults,
+  shareCsvOrDownload,
   type SavedCatalogItem,
 } from '@/lib/catalog';
 import {
   PRODUCT_IMAGES_BUCKET,
   SIZE_CHARTS_BUCKET,
+  isPublicStorageUrl,
   sanitizeStorageSegment,
   uploadDataUriToPublicStorage,
   uploadFileToPublicStorage,
@@ -96,6 +98,7 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
   const [open, setOpen] = useState(false);
   const [showCatalog, setShowCatalog] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [sizeChartFile, setSizeChartFile] = useState<File | null>(null);
   const { toast } = useToast();
 
@@ -142,6 +145,7 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
   }, []);
 
   const updateField = (field: keyof CatalogFormValues, value: string) => {
+    clearUploadError();
     setFormValues((prev) => {
       if (samePrice && field === 'mrp') {
         return { ...prev, mrp: value, sellingPrice: value, costPrice: value };
@@ -178,10 +182,15 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
       }));
     }
 
+    if (!nextOpen) {
+      setUploadError(null);
+    }
+
     setOpen(nextOpen);
   };
 
   const updateSamePrice = (checked: boolean) => {
+    clearUploadError();
     setSamePrice(checked);
     if (checked) {
       setFormValues((prev) => ({
@@ -193,13 +202,21 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
   };
 
   const updateSizeRow = (id: string, patch: Partial<CatalogSizeRow>) => {
+    clearUploadError();
     setFormValues((prev) => ({
       ...prev,
       sizeRows: prev.sizeRows.map((row) => (row.id === id ? { ...row, ...patch } : row)),
     }));
   };
 
+  const clearUploadError = () => {
+    if (uploadError) {
+      setUploadError(null);
+    }
+  };
+
   const addSizeRow = () => {
+    clearUploadError();
     setFormValues((prev) => ({
       ...prev,
       sizeRows: [...prev.sizeRows, { id: crypto.randomUUID(), size: '', quantity: '1' }],
@@ -207,6 +224,7 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
   };
 
   const removeSizeRow = (id: string) => {
+    clearUploadError();
     setFormValues((prev) => ({
       ...prev,
       sizeRows: prev.sizeRows.length > 1 ? prev.sizeRows.filter((row) => row.id !== id) : prev.sizeRows,
@@ -277,7 +295,16 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
       }),
     ]);
 
-    return { image1, image2, image3, image4 };
+    const imageUrls = { image1, image2, image3, image4 };
+    const invalidImages = Object.entries(imageUrls)
+      .filter(([, url]) => !isPublicStorageUrl(url, PRODUCT_IMAGES_BUCKET))
+      .map(([key]) => key);
+
+    if (invalidImages.length > 0) {
+      throw new Error(`Image upload returned invalid public URLs: ${invalidImages.join(', ')}.`);
+    }
+
+    return imageUrls;
   };
 
   const uploadSizeChartIfNeeded = async (folder: string) => {
@@ -296,6 +323,7 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
     const latestDefaults = readCatalogDefaults();
     const valuesForSave = applyDefaultFallbacks(formValues, latestDefaults);
     setFormValues(valuesForSave);
+    setUploadError(null);
 
     if (!validateRequiredFields(valuesForSave)) return;
 
@@ -323,28 +351,13 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
       toast({ title: 'Product saved', description: 'Public image URLs are ready for the Mitty CSV.' });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Image upload failed.';
-      const shouldSaveIncomplete = window.confirm(
-        `Upload failed: ${message}\n\nSave this product without complete public image URLs?`
-      );
-
-      if (shouldSaveIncomplete) {
-        setItems((prev) => [
-          {
-            ...valuesForSave,
-            id: crypto.randomUUID(),
-            createdAt: new Date().toISOString(),
-            imageUrls: { image1: '', image2: '', image3: '', image4: '' },
-          },
-          ...prev,
-        ]);
-        setOpen(false);
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'Upload failed',
-          description: message,
-        });
-      }
+      const description = `Image upload failed. Product was not saved because catalog requires public image URLs. ${message}`;
+      setUploadError(description);
+      toast({
+        variant: 'destructive',
+        title: 'Upload failed',
+        description,
+      });
     } finally {
       setSaving(false);
     }
@@ -359,6 +372,15 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
     downloadCsv(exportMittyCatalogCsv(items));
   };
 
+  const shareCatalog = async () => {
+    if (items.length === 0) {
+      toast({ variant: 'destructive', title: 'Catalog empty', description: 'Save a product before sharing CSV.' });
+      return;
+    }
+
+    await shareCsvOrDownload(exportMittyCatalogCsv(items));
+  };
+
   const clearCatalog = () => {
     setItems([]);
     window.localStorage.removeItem(CATALOG_STORAGE_KEY);
@@ -366,32 +388,39 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
 
   return (
     <section className="grid gap-4 rounded-lg border border-black/10 bg-white/80 p-4 shadow-sm backdrop-blur sm:p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+      <div className="grid gap-4">
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <Badge className="bg-[#171717] text-[#f4d99f] hover:bg-[#171717]">Catalog Builder</Badge>
             <Badge variant="outline">{items.length} saved</Badge>
           </div>
           <h2 className="mt-3 text-xl font-semibold text-[#171717]">Mitty Catalog CSV</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+            Add the generated product once. Image URLs, size rows, pricing, and CSV export stay ready in this browser.
+          </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setOpen(true)} className="bg-[#171717] text-white hover:bg-[#2a2a2a]">
+        <div className="grid w-full gap-2 sm:grid-cols-2 lg:grid-cols-[1.25fr_1fr_1fr_1fr_0.8fr]">
+          <Button onClick={() => setOpen(true)} className="h-10 w-full bg-[#171717] text-white hover:bg-[#2a2a2a]">
             <Plus className="mr-2 h-4 w-4" />
             Add to Catalog
           </Button>
-          <Button variant="outline" onClick={() => setShowCatalog((prev) => !prev)}>
+          <Button variant="outline" onClick={() => setShowCatalog((prev) => !prev)} className="h-10 w-full">
             <Eye className="mr-2 h-4 w-4" />
             View Catalog
           </Button>
-          <Button variant="outline" onClick={downloadCatalog}>
+          <Button variant="outline" onClick={downloadCatalog} className="h-10 w-full">
             <Download className="mr-2 h-4 w-4" />
-            Download Catalog CSV
+            Download CSV
+          </Button>
+          <Button variant="outline" onClick={() => void shareCatalog()} className="h-10 w-full">
+            <Share2 className="mr-2 h-4 w-4" />
+            Share CSV
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="outline" disabled={items.length === 0}>
+              <Button variant="outline" disabled={items.length === 0} className="h-10 w-full">
                 <Trash2 className="mr-2 h-4 w-4" />
-                Clear Catalog
+                Clear
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -540,10 +569,20 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
                   id="size-chart-upload"
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
-                  onChange={(event) => setSizeChartFile(event.target.files?.[0] ?? null)}
+                  onChange={(event) => {
+                    clearUploadError();
+                    setSizeChartFile(event.target.files?.[0] ?? null);
+                  }}
                 />
               </div>
             </div>
+
+            {uploadError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm leading-6 text-destructive">
+                <p className="font-semibold">Product was not saved</p>
+                <p className="mt-1">{uploadError}</p>
+              </div>
+            )}
 
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={saving}>
@@ -551,7 +590,7 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
               </Button>
               <Button type="button" onClick={() => void saveProduct()} disabled={saving} className="bg-[#171717] text-white hover:bg-[#2a2a2a]">
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                Save Product
+                {uploadError ? 'Retry Save' : 'Save Product'}
               </Button>
             </div>
           </div>

@@ -2,13 +2,19 @@
 
 import { Camera, ImagePlus, UploadCloud, X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import type { ChangeEvent } from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import type { UseFormReturn } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { ProductFormValues } from '@/lib/types';
 import { optimizeImage, formatBytes, exceedsPerImageLimit, type OptimizedImage } from '@/lib/image-compression';
+import {
+  dataUriToFile,
+  readWorkflowDraft,
+  removeWorkflowDraftFile,
+  saveWorkflowDraftFile,
+} from '@/lib/workflow-draft';
 
 type FileFieldName =
   | 'productImage'
@@ -42,6 +48,45 @@ export function FileUpload({ form, name, title, helperText, badge, compact = fal
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const { setValue, formState: { errors } } = form;
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const restoreDraftFile = async () => {
+      const currentValue = form.getValues(name);
+
+      if (Array.isArray(currentValue) && currentValue.length > 0) {
+        return;
+      }
+
+      const draft = await readWorkflowDraft();
+      const draftFile = draft?.files?.[name];
+
+      if (!draftFile?.dataUri || cancelled) {
+        return;
+      }
+
+      try {
+        const file = await dataUriToFile(draftFile.dataUri, draftFile.name, draftFile.type);
+
+        if (cancelled) {
+          return;
+        }
+
+        setValue(name, [file], { shouldValidate: true });
+        setPreview(draftFile.dataUri);
+        setSizeInfo(null);
+      } catch {
+        // Ignore invalid draft images.
+      }
+    };
+
+    void restoreDraftFile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [form, name, setValue]);
+
   const setFiles = useCallback(
     async (acceptedFiles: File[]) => {
       if (acceptedFiles.length > 0) {
@@ -53,11 +98,26 @@ export function FileUpload({ form, name, title, helperText, badge, compact = fal
           setValue(name, [optimized.file], { shouldValidate: true });
           setPreview(optimized.dataUri);
           setSizeInfo(optimized);
+          void saveWorkflowDraftFile(name, {
+            dataUri: optimized.dataUri,
+            name: optimized.file.name,
+            type: optimized.file.type,
+            lastModified: optimized.file.lastModified,
+          });
         } catch {
           // Fallback – use original
           setValue(name, acceptedFiles, { shouldValidate: true });
           const reader = new FileReader();
-          reader.onload = () => setPreview(reader.result as string);
+          reader.onload = () => {
+            const dataUri = reader.result as string;
+            setPreview(dataUri);
+            void saveWorkflowDraftFile(name, {
+              dataUri,
+              name: file.name,
+              type: file.type,
+              lastModified: file.lastModified,
+            });
+          };
           reader.readAsDataURL(file);
           setSizeInfo(null);
         } finally {
@@ -86,6 +146,7 @@ export function FileUpload({ form, name, title, helperText, badge, compact = fal
     setValue(name, null, { shouldValidate: true });
     setPreview(null);
     setSizeInfo(null);
+    void removeWorkflowDraftFile(name);
   };
   
   const errorMessage = errors[name]?.message as string | undefined;

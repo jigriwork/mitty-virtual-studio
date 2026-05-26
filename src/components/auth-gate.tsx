@@ -22,10 +22,20 @@ export type AuthContextValue = {
 
 const OWNER_USER_ID = 'a35c12a0-4d29-43d3-9dd1-1e83cf733452';
 const OWNER_EMAIL = 'admin@gpbm.in';
+const STAFF_USER_IDS = new Set(['e8c18396-12fa-43a8-911e-030aa5daf14a']);
+const STAFF_EMAILS = new Set(['staff@gpbm.in']);
 
 const getFallbackRole = (user: User): AppRole => {
   const email = user.email?.toLowerCase();
-  return user.id === OWNER_USER_ID || email === OWNER_EMAIL ? 'owner' : 'staff';
+  if (user.id === OWNER_USER_ID || email === OWNER_EMAIL) {
+    return 'owner';
+  }
+
+  if (STAFF_USER_IDS.has(user.id) || (email && STAFF_EMAILS.has(email))) {
+    return 'staff';
+  }
+
+  return 'staff';
 };
 
 const resolveRole = async (user: User): Promise<AppRole> => {

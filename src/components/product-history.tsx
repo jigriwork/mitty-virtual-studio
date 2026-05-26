@@ -1,11 +1,12 @@
 'use client';
 
-import { Download, Package, Trash2 } from 'lucide-react';
+import { Download, Package, Share2, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
   CATALOG_STORAGE_KEY,
   downloadCsv,
   exportMittyCatalogCsv,
+  shareCsvOrDownload,
   type SavedCatalogItem,
 } from '@/lib/catalog';
 import { Badge } from '@/components/ui/badge';
@@ -68,6 +69,12 @@ export function ProductHistory() {
     }
   };
 
+  const shareCatalog = async () => {
+    if (items.length > 0) {
+      await shareCsvOrDownload(exportMittyCatalogCsv(items));
+    }
+  };
+
   return (
     <section className="mx-auto grid max-w-5xl gap-4">
       <div className="flex flex-col gap-3 rounded-lg border border-black/10 bg-white/80 p-5 shadow-sm backdrop-blur sm:flex-row sm:items-center sm:justify-between">
@@ -81,14 +88,18 @@ export function ProductHistory() {
             Product history, saved uploads, and generated asset libraries will appear here in a later release.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={downloadCatalog} disabled={items.length === 0}>
+        <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-3">
+          <Button variant="outline" onClick={downloadCatalog} disabled={items.length === 0} className="w-full">
             <Download className="mr-2 h-4 w-4" />
             Download CSV
           </Button>
+          <Button variant="outline" onClick={() => void shareCatalog()} disabled={items.length === 0} className="w-full">
+            <Share2 className="mr-2 h-4 w-4" />
+            Share CSV
+          </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="outline" disabled={items.length === 0}>
+              <Button variant="outline" disabled={items.length === 0} className="w-full">
                 <Trash2 className="mr-2 h-4 w-4" />
                 Clear
               </Button>

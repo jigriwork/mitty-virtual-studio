@@ -1,4 +1,5 @@
 import type { GenerationResults } from '@/lib/types';
+import { downloadBlob, shareFileOrDownload } from '@/lib/file-actions';
 
 export const MITTY_CATALOG_HEADERS = [
   'Product Code',
@@ -170,7 +171,7 @@ export const createCatalogDefaults = (
   name: results.productTitle || results.seoTitle || '',
   skuBase: '',
   sellingPrice: '',
-  mrp: '',
+  mrp: results.mrp || '',
   costPrice: '',
   packagingLength: '',
   packagingBreadth: '',
@@ -190,7 +191,11 @@ export const createCatalogDefaults = (
   associatedPixel: '',
   video1: '',
   video2: '',
-  sizeRows: [{ id: crypto.randomUUID(), size: '', quantity: '1' }],
+  sizeRows: results.availableSizes?.filter((row) => row.size.trim() || row.quantity.trim()).map((row) => ({
+    id: crypto.randomUUID(),
+    size: row.size,
+    quantity: row.quantity || '1',
+  })) || [],
   };
 };
 
@@ -260,13 +265,17 @@ export const exportMittyCatalogCsv = (items: SavedCatalogItem[]) => {
   ].join('\r\n');
 };
 
+export const createCsvBlob = (csv: string) => new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+
 export const downloadCsv = (csv: string, fileName = 'mitty-catalog.csv') => {
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(link.href);
+  downloadBlob(createCsvBlob(csv), fileName);
+};
+
+export const shareCsvOrDownload = async (csv: string, fileName = 'mitty-catalog.csv') => {
+  await shareFileOrDownload({
+    blob: createCsvBlob(csv),
+    fileName,
+    title: 'Mitty Catalog CSV',
+    text: 'Mitty catalog CSV export.',
+  });
 };

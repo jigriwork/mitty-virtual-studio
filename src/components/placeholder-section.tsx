@@ -2,7 +2,7 @@ import { Clock3 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import type { AppSection } from './app-shell';
 
-const copy: Record<Exclude<AppSection, 'studio' | 'generate'>, { title: string; body: string }> = {
+const copy: Record<Exclude<AppSection, 'studio'>, { title: string; body: string }> = {
   products: {
     title: 'Products',
     body: 'Product history, saved uploads, and generated asset libraries will appear here in a later release.',
@@ -21,7 +21,7 @@ const copy: Record<Exclude<AppSection, 'studio' | 'generate'>, { title: string; 
   },
 };
 
-export function PlaceholderSection({ section }: { section: Exclude<AppSection, 'studio' | 'generate'> }) {
+export function PlaceholderSection({ section }: { section: Exclude<AppSection, 'studio'> }) {
   const item = copy[section];
 
   return (

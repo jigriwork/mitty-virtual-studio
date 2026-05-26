@@ -1,6 +1,6 @@
 'use client';
 
-import { Package, Shirt } from 'lucide-react';
+import { Package, Share2, Shirt } from 'lucide-react';
 import { useState } from 'react';
 import JSZip from 'jszip';
 import type { GenerationProgressState, GenerationResults } from '@/lib/types';
@@ -12,6 +12,8 @@ import { SeoPreviewPanel } from './seo-preview-panel';
 import { GenerationProgressPanel } from './generation-progress-panel';
 import { CatalogBuilder } from './catalog-builder';
 import { upscaleToBlob } from '@/lib/image-upscaler';
+import { downloadBlob, shareFileOrDownload } from '@/lib/file-actions';
+import { incrementZipExports } from '@/lib/workflow-metrics';
 
 interface ResultsDisplayProps {
   results: GenerationResults | null;
@@ -48,11 +50,8 @@ export function ResultsDisplay({
 }: ResultsDisplayProps) {
   const [zipping, setZipping] = useState(false);
   
-  const handleDownloadAll = async () => {
+  const createProductZip = async () => {
     if (!results) return;
-    setZipping(true);
-
-    try {
 
     const zip = new JSZip();
     const {
@@ -78,6 +77,8 @@ export function ResultsDisplay({
       productCategory,
       color,
       fitType,
+      mrp,
+      availableSizes,
     } = results;
     
     const isTrousers = productCategory === 'Trousers';
@@ -130,6 +131,13 @@ export function ResultsDisplay({
     const txtContent = [
       `SEO Title: ${seoTitle}`,
       `Product Title: ${productTitle}`,
+      `MRP: ${mrp?.trim() ? `₹${mrp.trim()}` : 'Not provided'}`,
+      `Available Sizes / Quantity:\n${availableSizes?.some((row) => row.size.trim() || row.quantity.trim())
+        ? availableSizes
+            .filter((row) => row.size.trim() || row.quantity.trim())
+            .map((row) => `${row.size.trim() || 'Size not specified'} - ${row.quantity.trim() || '1'}`)
+            .join('\n')
+        : 'Not provided'}`,
       `Short Description: ${shortDescription}`,
       `Long Description:\n${longDescription || productDescription}`,
       `Bullet Features:\n${bulletFeatures.map((feature) => `- ${feature}`).join('\n')}`,
@@ -144,12 +152,39 @@ export function ResultsDisplay({
     zip.file('Product_Info.txt', txtContent);
 
     const zipBlob = await zip.generateAsync({ type: 'blob' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(zipBlob);
-    link.download = zipFileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    return { zipBlob, zipFileName, productTitle };
+  };
+  
+  const handleDownloadAll = async () => {
+    if (!results) return;
+    setZipping(true);
+
+    try {
+      const zipResult = await createProductZip();
+      if (zipResult) {
+        downloadBlob(zipResult.zipBlob, zipResult.zipFileName);
+        incrementZipExports();
+      }
+    } finally {
+      setZipping(false);
+    }
+  };
+
+  const handleShareAll = async () => {
+    if (!results) return;
+    setZipping(true);
+
+    try {
+      const zipResult = await createProductZip();
+      if (zipResult) {
+        await shareFileOrDownload({
+          blob: zipResult.zipBlob,
+          fileName: zipResult.zipFileName,
+          title: zipResult.productTitle,
+          text: 'Mitty product images and product details.',
+        });
+        incrementZipExports();
+      }
     } finally {
       setZipping(false);
     }
@@ -213,10 +248,16 @@ export function ResultsDisplay({
             Regenerate individual views, download single assets, or export the full product pack.
           </p>
         </div>
-        <Button onClick={() => void handleDownloadAll()} size="lg" disabled={!productTitle || loadingState.all || zipping} className="h-11 bg-[#171717] text-white hover:bg-[#2a2a2a]">
+        <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-2">
+        <Button onClick={() => void handleDownloadAll()} size="lg" disabled={!productTitle || loadingState.all || zipping} className="h-11 w-full bg-[#171717] text-white hover:bg-[#2a2a2a]">
             <Package className="mr-2 h-5 w-5" />
             {zipping ? 'Upscaling to HD…' : 'Download All (.zip)'}
         </Button>
+        <Button onClick={() => void handleShareAll()} variant="outline" size="lg" disabled={!productTitle || loadingState.all || zipping} className="h-11 w-full bg-white">
+            <Share2 className="mr-2 h-5 w-5" />
+            Share ZIP
+        </Button>
+        </div>
       </div>
 
       <SeoPreviewPanel results={results} />

@@ -7,14 +7,13 @@ import {
   Package,
   Settings,
   Users,
-  Wand2,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { MittyLogo } from '@/components/mitty-logo';
 import { cn } from '@/lib/utils';
 
-export type AppSection = 'studio' | 'products' | 'generate' | 'review' | 'settings' | 'staff';
+export type AppSection = 'studio' | 'products' | 'review' | 'settings' | 'staff';
 
 type NavItem = {
   id: AppSection;
@@ -25,7 +24,6 @@ type NavItem = {
 const navItems: NavItem[] = [
   { id: 'studio', label: 'Studio', icon: LayoutDashboard },
   { id: 'products', label: 'Products', icon: Package },
-  { id: 'generate', label: 'Generate', icon: Wand2 },
   { id: 'review', label: 'Review', icon: CheckCircle2 },
   { id: 'settings', label: 'Settings', icon: Settings },
   { id: 'staff', label: 'Staff', icon: Users },

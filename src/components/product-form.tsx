@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { useWatch } from 'react-hook-form';
 import { Badge } from '@/components/ui/badge';
@@ -18,8 +19,75 @@ interface ProductFormProps {
   isLoading: boolean;
 }
 
+const LAST_AVAILABLE_SIZES_STORAGE_KEY = 'mitty-last-available-sizes';
+
 export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
   const productCategory = useWatch({ control: form.control, name: 'productCategory' });
+  const watchedAvailableSizes = useWatch({ control: form.control, name: 'availableSizes' });
+  const availableSizes = useMemo(() => watchedAvailableSizes || [], [watchedAvailableSizes]);
+  const [loadedLastSizes, setLoadedLastSizes] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(LAST_AVAILABLE_SIZES_STORAGE_KEY);
+      const parsed = stored ? (JSON.parse(stored) as ProductFormValues['availableSizes']) : [];
+      const currentSizes = form.getValues('availableSizes') || [];
+
+      if (parsed?.length && currentSizes.length === 0) {
+        form.setValue('availableSizes', parsed, { shouldValidate: true });
+      }
+    } catch {
+      // Ignore invalid saved workflow helpers.
+    } finally {
+      setLoadedLastSizes(true);
+    }
+    // Run only once on mount so current edits are not overwritten.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!loadedLastSizes) {
+      return;
+    }
+
+    const rowsToSave = availableSizes.filter((row) => row.size.trim() || row.quantity.trim());
+    window.localStorage.setItem(LAST_AVAILABLE_SIZES_STORAGE_KEY, JSON.stringify(rowsToSave));
+  }, [availableSizes, loadedLastSizes]);
+
+  const updateAvailableSize = (id: string, patch: { size?: string; quantity?: string }) => {
+    form.setValue(
+      'availableSizes',
+      availableSizes.map((row) => (row.id === id ? { ...row, ...patch } : row)),
+      { shouldValidate: true }
+    );
+  };
+
+  const addAvailableSize = (size = '', quantity = '1') => {
+    form.setValue(
+      'availableSizes',
+      [...availableSizes, { id: crypto.randomUUID(), size, quantity }],
+      { shouldValidate: true }
+    );
+  };
+
+  const addCommonSizes = (sizes: string[]) => {
+    const existingSizes = new Set(availableSizes.map((row) => row.size.trim()).filter(Boolean));
+    const rowsToAdd = sizes
+      .filter((size) => !existingSizes.has(size))
+      .map((size) => ({ id: crypto.randomUUID(), size, quantity: '1' }));
+
+    if (rowsToAdd.length > 0) {
+      form.setValue('availableSizes', [...availableSizes, ...rowsToAdd], { shouldValidate: true });
+    }
+  };
+
+  const removeAvailableSize = (id: string) => {
+    form.setValue(
+      'availableSizes',
+      availableSizes.filter((row) => row.id !== id),
+      { shouldValidate: true }
+    );
+  };
 
   return (
     <Form {...form}>
@@ -28,9 +96,9 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
           <Badge variant="outline" className="border-[#d8c39b] bg-[#fff8ea] text-[#8a6635]">
             Step 1
           </Badge>
-          <h2 className="mt-3 text-xl font-semibold text-[#171717]">Product Upload</h2>
+          <h2 className="mt-3 text-xl font-semibold text-[#171717]">Create Product Pack</h2>
           <p className="mt-1 text-sm leading-6 text-muted-foreground">
-            Choose the product type, add key details, and upload the reference images.
+            Add catalog data once, then generate images, ZIP files, and catalog rows from the same workflow.
           </p>
         </div>
         <div className="space-y-6 p-4 sm:p-5">
@@ -65,7 +133,81 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
             />
             </section>
 
-            <section className="space-y-4 rounded-lg border border-black/10 bg-[#fbf8f1] p-4">
+            <section className="space-y-4 rounded-lg border border-black/10 bg-white p-4 shadow-sm">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8a6635]">
+                  Catalog Pricing
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Optional pricing used later for downloads and catalog export.
+                </p>
+              </div>
+              <FormField
+                control={form.control}
+                name="mrp"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>MRP</FormLabel>
+                    <FormControl>
+                      <Input inputMode="decimal" placeholder="e.g., 1499" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </section>
+
+            <section className="space-y-4 rounded-lg border border-black/10 bg-white p-4 shadow-sm">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8a6635]">
+                  Available Sizes / Quantity
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Add all available sizes and quantity. This will be included in ZIP and catalog CSV.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => addAvailableSize()}>
+                  Add Size
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => addCommonSizes(['38', '40', '42', '44'])}>
+                  Add 38-44
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => addCommonSizes(['38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60'])}>
+                  Add 38-60
+                </Button>
+              </div>
+              {availableSizes.length > 0 && (
+                <div className="grid gap-2">
+                  {availableSizes.map((row) => (
+                    <div key={row.id} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.5rem] gap-2">
+                      <Input
+                        placeholder="Size"
+                        value={row.size}
+                        onChange={(event) => updateAvailableSize(row.id, { size: event.target.value })}
+                      />
+                      <Input
+                        inputMode="numeric"
+                        placeholder="Quantity"
+                        value={row.quantity}
+                        onChange={(event) => updateAvailableSize(row.id, { quantity: event.target.value })}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => removeAvailableSize(row.id)}
+                        aria-label="Remove available size"
+                      >
+                        X
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="space-y-4 rounded-lg border border-black/10 bg-[#fbf8f1] p-4 shadow-sm">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8a6635]">
                   Product Details
@@ -590,7 +732,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
             )}
             </section>
         </div>
-        <div className="border-t border-black/10 bg-white p-4 sm:p-5">
+        <div className="sticky bottom-0 border-t border-black/10 bg-white/95 p-4 backdrop-blur sm:p-5">
           <Button type="submit" disabled={isLoading} className="h-12 w-full bg-[#171717] text-white hover:bg-[#2a2a2a]" size="lg">
             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Generate Assets'}
           </Button>

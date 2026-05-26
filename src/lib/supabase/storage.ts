@@ -4,6 +4,7 @@ import { getSupabaseBrowserClient } from './client';
 
 export const PRODUCT_IMAGES_BUCKET = 'product-generated-images';
 export const SIZE_CHARTS_BUCKET = 'size-charts';
+const STORAGE_PUBLIC_PATH = '/storage/v1/object/public/';
 
 const dataUriToBlob = async (dataUri: string): Promise<Blob> => {
   const response = await fetch(dataUri);
@@ -31,6 +32,17 @@ export const sanitizeStorageSegment = (value: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 80) || `product-${Date.now()}`;
+
+export const isPublicStorageUrl = (url: string, bucket?: string) => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  if (!supabaseUrl || !url) {
+    return false;
+  }
+
+  const expectedPrefix = `${supabaseUrl}${STORAGE_PUBLIC_PATH}${bucket ? `${bucket}/` : ''}`;
+  return url.startsWith(expectedPrefix);
+};
 
 export const uploadDataUriToPublicStorage = async ({
   bucket,

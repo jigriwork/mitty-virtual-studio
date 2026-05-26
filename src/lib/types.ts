@@ -4,6 +4,12 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 type UploadedFiles = File[];
 
+export type AvailableSizeRow = {
+  id: string;
+  size: string;
+  quantity: string;
+};
+
 export const productFormSchema = z.object({
   productCategory: z.enum(['Shirt', 'Trousers', 'Jeans', 'Shoes', 'Perfume'], {
     required_error: 'Please select a product category.',
@@ -13,6 +19,12 @@ export const productFormSchema = z.object({
   fabricType: z.string().optional(),
   color: z.string().optional(),
   pattern: z.string().optional(),
+  mrp: z.string().optional(),
+  availableSizes: z.array(z.object({
+    id: z.string(),
+    size: z.string(),
+    quantity: z.string(),
+  })).optional(),
   frontPocket: z.enum(['Auto Detect', 'Yes', 'No']).optional(),
   patternOverride: z.enum(['Auto Detect', 'Plain', 'Printed', 'Checked', 'Striped', 'Textured']).optional(),
   collarType: z.enum(['Auto Detect', 'Spread Collar', 'Button Down', 'Mandarin', 'Cuban/Open Collar']).optional(),
@@ -149,6 +161,10 @@ export type GenerationResults = {
   productCategory: 'Shirt' | 'Trousers' | 'Jeans' | 'Shoes' | 'Perfume';
   color?: string;
   fitType?: string;
+  mrp?: string;
+  sellingPrice?: string;
+  costPrice?: string;
+  availableSizes?: AvailableSizeRow[];
 };
 
 export type GenerationProgressStepStatus = 'pending' | 'active' | 'completed' | 'failed';
