@@ -160,14 +160,24 @@ const createProgressState = (category: ProductCategory): GenerationProgressState
 const createSeoOnlyResult = (
   textResult: SeoContentPack,
   productCategory: ProductCategory,
+  gender: ProductFormValues['gender'],
   color: string,
+  selectedColor: string,
+  detectedColor: string,
+  effectiveColor: string,
+  isManualColor: boolean,
   fitType?: string,
   mrp?: string,
   availableSizes?: AvailableSizeRow[]
 ): GenerationResults => ({
   ...textResult,
   productCategory,
+  gender,
   color,
+  selectedColor,
+  detectedColor,
+  effectiveColor,
+  isManualColor,
   fitType,
   mrp,
   availableSizes,
@@ -371,6 +381,8 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
     try {
       const uris: {[key: string]: string} = {};
       const allOptimized: OptimizedImage[] = [];
+      const selectedColor = data.color?.trim() || '';
+      const isManualColor = selectedColor.length > 0;
 
       const getUploadedFile = (files: File[] | null | undefined, fieldName: string) => {
         const file = files?.[0];
@@ -395,7 +407,9 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
         gender: data.gender,
         sleeveType: data.sleeveType,
         fabricType: data.fabricType,
-        color: data.color,
+        color: selectedColor,
+        selectedColor,
+        isManualColor,
         pattern: data.pattern,
         frontPocket: data.frontPocket,
         patternOverride: data.patternOverride,
@@ -497,23 +511,33 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
       markStepCompleted('seo');
       markStepActive('color');
       const detectedColor = textResult.detectedColor;
+      const effectiveColor = isManualColor ? selectedColor : detectedColor;
       markStepCompleted('color');
 
       setResults(
         createSeoOnlyResult(
           textResult,
           data.productCategory,
+          data.gender,
+          effectiveColor,
+          selectedColor,
           detectedColor,
+          effectiveColor,
+          isManualColor,
           data.fitType,
           data.mrp?.trim(),
           data.availableSizes
         )
       );
 
-      // Now prepare the input for image generation using the detected color
+      // Now prepare the input for image generation using the final effective color.
       const imageFlowInput: GenerateProductViewInput = {
         ...baseFlowInput,
-        color: detectedColor,
+        color: effectiveColor,
+        selectedColor,
+        detectedColor,
+        effectiveColor,
+        isManualColor,
       } as GenerateProductViewInput;
 
 
@@ -566,6 +590,10 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
 
   const getFlowInputForRegen = (): GenerateProductViewInput => {
     const data = form.getValues();
+    const selectedColor = results?.selectedColor ?? data.color?.trim() ?? '';
+    const isManualColor = results?.isManualColor ?? selectedColor.length > 0;
+    const detectedColor = results?.detectedColor;
+    const effectiveColor = results?.effectiveColor || results?.color || (isManualColor ? selectedColor : detectedColor) || data.color;
     const flowInput: GenerateProductViewInput = {
       productCategory: data.productCategory,
       gender: data.gender,
@@ -590,7 +618,11 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
       fragranceFamily: data.fragranceFamily,
       fragranceName: data.fragranceName,
       sizeMl: data.sizeMl,
-      color: results?.color || data.color,
+      color: effectiveColor,
+      selectedColor,
+      detectedColor,
+      effectiveColor,
+      isManualColor,
       productImage: productImageUris.main,
       mainProductImage: productImageUris.main,
       openShirtImage: productImageUris.open,

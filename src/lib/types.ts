@@ -167,6 +167,10 @@ export type GenerationResults = {
   stylingSuggestions: string;
   detectedColor: string;
   productCategory: 'Shirt' | 'Trousers' | 'Jeans' | 'Shoes' | 'Perfume';
+  gender: 'Male' | 'Female' | 'Unisex';
+  selectedColor?: string;
+  effectiveColor?: string;
+  isManualColor?: boolean;
   color?: string;
   fitType?: string;
   mrp?: string;

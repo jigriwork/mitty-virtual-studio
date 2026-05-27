@@ -13,7 +13,12 @@ import {z} from 'genkit';
 import { type GenerateProductViewInput, GenerateProductViewInputSchema } from './types';
 import { requireGeneratedImage } from './image-output';
 import { IMAGE_GENERATION_MODEL } from './model-names';
-import { buildProductAccuracyInstructions } from './product-accuracy-lock';
+import {
+  buildGenderModelInstruction,
+  buildInputColorLockInstruction,
+  buildProductAccuracyInstructions,
+  buildProductOnlyNoPersonInstruction,
+} from './product-accuracy-lock';
 
 type PromptMedia = {media: {url: string}};
 
@@ -48,8 +53,12 @@ const generateSideViewFlow = ai.defineFlow(
     if (input.productCategory === 'Shoes') {
       const material = input.fabricType;
       const color = input.color || 'specified';
-      const forGender = input.gender === 'Male' ? "men's" : "women's";
+      const forGender = input.gender === 'Male' ? "men's" : input.gender === 'Female' ? "women's" : 'unisex';
       promptText = `Generate an ultra-realistic, high-resolution, professional e-commerce studio photograph of a single ${forGender} formal shoe, viewed from the side profile. This must look like a premium HD product listing image, not a phone photo.
+
+${buildProductOnlyNoPersonInstruction()}
+
+${buildInputColorLockInstruction(input)}
 
 The shoe, made of ${color} ${material}, must exactly match the style and details of the uploaded image. It should be perfectly perpendicular to the camera, showcasing the quarter, sole construction, and heel. The background must be a solid light grey (hex #f0f2f5), and the lighting should be crisp, even, and diffuse, revealing the texture of the material without harsh reflections or shadows. The image must be pin-sharp, high-detail, and HD quality suitable for a premium e-commerce product page.
 
@@ -58,20 +67,23 @@ ${buildProductAccuracyInstructions(input)}`;
     } else {
       const sleeveType = input.productCategory === 'Shirt' ? input.sleeveType : '';
       const productDescription = `${input.fabricType} ${sleeveType} ${input.productCategory.toLowerCase()}`.trim();
-      const gender = input.gender.toLowerCase();
-      const forGender = gender === 'male' ? 'men' : 'women';
+      const forGender = input.gender === 'Male' ? 'men' : input.gender === 'Female' ? 'women' : 'unisex';
       const colorPattern = `with a ${input.color || 'specified'} base and ${input.pattern || 'specified'} design`;
       const accuracyInstructions = buildProductAccuracyInstructions(input);
 
-      promptText = `Generate an ultra-realistic, high-resolution, professional e-commerce studio photograph showing the side view of the same ${gender} model, turned 90 degrees to his left. This must look like a premium HD product listing image shot by a professional photographer, not a phone photo.
+      promptText = `Generate an ultra-realistic, high-resolution, professional e-commerce studio photograph showing the side view of the same fashion model, turned 90 degrees to the model's left side. This must look like a premium HD product listing image shot by a professional photographer, not a phone photo.
 
-He is wearing the same ${productDescription} for ${forGender}, based on the uploaded product image ${colorPattern}.
+${buildGenderModelInstruction(input.gender)}
+
+${buildInputColorLockInstruction(input)}
+
+The selected adult model is wearing the same ${productDescription} for ${forGender}, based on the uploaded product image ${colorPattern}.
 
 ${accuracyInstructions}
 
 The side profile should clearly show sleeve length and ${input.productCategory.toLowerCase()} fit. Sleeves should be worn normally with no folding or rolling. Use crisp, even, diffuse studio lighting and the selected Output Background Style from the accuracy instructions, defaulting to clean light grey studio. Do not switch to beige, brown, outdoor, room, wall, or lifestyle backgrounds unless explicitly selected.
 
-Ensure color accuracy, fabric texture, and button/collar details match the uploaded shirt image. The model must be identical to the front view with same face, hair, and posture to ensure consistency across the product shoot. Final output must be sharp, high-detail, HD quality suitable for a premium e-commerce product page.`;
+Ensure color accuracy according to the colour lock, while fabric texture and button/collar details match the uploaded shirt image. The model must be identical to the front view with same face, hair, and posture to ensure consistency across the product shoot. Final output must be sharp, high-detail, HD quality suitable for a premium e-commerce product page.`;
       promptMedia = input.productCategory === 'Shirt'
         ? buildShirtPromptMedia(input)
         : [{media: {url: input.productImage!}}];

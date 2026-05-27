@@ -1,8 +1,88 @@
 import type { GenerateProductViewInput } from './types';
 
+type ProductGender = GenerateProductViewInput['gender'];
+
+export function buildGenderModelInstruction(gender: ProductGender) {
+  if (gender === 'Male') {
+    return "Gender lock: Use one adult male model only. The model must clearly appear male. Do not generate a woman, female model, feminine body shape, feminine styling, androgynous presentation, or female-coded pose/styling. The outfit must be styled as men's fashion.";
+  }
+
+  if (gender === 'Female') {
+    return "Gender lock: Use one adult female model only. The model must clearly appear female. Do not generate a man, male model, masculine body shape, masculine styling, androgynous presentation, or male-coded pose/styling. The outfit must be styled as women's fashion.";
+  }
+
+  return 'Gender lock: Use a neutral adult fashion model suitable for unisex product presentation. Do not make the gender presentation extreme unless required by the product. Keep product accuracy more important than styling.';
+}
+
+export function buildProductOnlyNoPersonInstruction() {
+  return 'Product-only lock: This is a product-only image. Do not include any human, model, face, body, hand, foot, mannequin, person silhouette, reflection of a person, or worn-by-person view. Show only the product.';
+}
+
+export function buildColorLockInstruction(effectiveColor?: string, isManualColor?: boolean) {
+  const color = effectiveColor?.trim();
+
+  if (isManualColor && color) {
+    return `Colour lock: Final product colour is ${color}. This is a user-selected colour override and must be treated as the source of truth. Do not infer a different colour from uploaded image lighting, shadows, camera exposure, fabric reflection, or reference photo colour. Preserve ${color} consistently across all generated views. Do not shift it to black, grey, purple, royal blue, faded blue, or any other shade.`;
+  }
+
+  if (color) {
+    return `Colour lock: Use the uploaded product/reference images to determine the product colour and preserve that detected colour consistently across all generated views. Final detected product colour: ${color}.`;
+  }
+
+  return 'Colour lock: Use the uploaded product/reference images to determine the product colour and preserve that detected colour consistently across all generated views.';
+}
+
+export function buildInputColorLockInstruction(input: GenerateProductViewInput) {
+  return buildColorLockInstruction(input.effectiveColor || input.color, input.isManualColor);
+}
+
+export function isTrouserTaglessMode(input: GenerateProductViewInput) {
+  return input.productCategory === 'Trousers' && input.trouserTagBrandingVisibility === 'No visible tags or branding anywhere';
+}
+
+export function buildTaglessTrouserInstruction(input: GenerateProductViewInput) {
+  if (!isTrouserTaglessMode(input)) {
+    return '';
+  }
+
+  return 'Final hard rule: render a completely tagless, labelless, logo-free trouser. No tag, label, tab, logo, brand patch, text mark, retail tag, hanging tag, waistband label, inner label, pocket label, side tab, back tab, black rectangle, or branding element may appear on the waistband, back pocket, side seam, belt loop, fabric, inner waistband, flatlay, or any part of the trouser. Ignore and remove any tag-like artifact visible in the source photo. Preserve only the trouser construction, fabric, color, pockets, buttons, waistband, belt loops, crease, fit, and silhouette.';
+}
+
+export function buildTaglessTrouserBackViewInstruction(input: GenerateProductViewInput) {
+  if (!isTrouserTaglessMode(input)) {
+    return '';
+  }
+
+  return 'Tagless back view rule: Welt pocket buttons must be small neutral or fabric-colored buttons. Buttons must not look like labels, tabs, logos, patches, black rectangles, text marks, or branding. No tag, label, tab, logo, patch, black rectangle, or branding may appear near the waistband, back pocket edge, belt loop, side seam, or anywhere on the back view.';
+}
+
+export function buildTaglessTrouserFlatlayInstruction(input: GenerateProductViewInput) {
+  if (!isTrouserTaglessMode(input)) {
+    return '';
+  }
+
+  return 'Tagless flatlay rule: clean product only. No retail tags, hanging tags, inner labels, waistband labels, source tags, paper tags, price tags, brand tabs, black tabs, labels, logos, patches, or branding. If the source photo contains any tag or tag-like artifact, remove it and ignore it for the generated flatlay.';
+}
+
+export function buildTaglessTrouserTextureInstruction(input: GenerateProductViewInput) {
+  if (!isTrouserTaglessMode(input)) {
+    return '';
+  }
+
+  return 'Tagless texture rule: fully tag-free fabric-only macro. Show no garment construction, no labels, no tags, no logos, no branding, no seams, no pockets, no waistband, and no garment edge.';
+}
+
 export function buildReferencePhotoInstructions(input: GenerateProductViewInput) {
+  if (isTrouserTaglessMode(input)) {
+    return input.isManualColor
+      ? 'Use uploaded trouser images as construction references only. Preserve the clearest trouser construction details, fabric texture, pockets, buttons, waistband, belt loops, crease, fit, and silhouette, but use the manual colour value as the final colour source of truth. Ignore and remove any tags, labels, patches, retail tags, hanging tags, black tabs, price tags, paper tags, text marks, or branding visible in any source image.'
+      : 'Use uploaded trouser images as construction references only. Preserve the clearest trouser construction details, fabric, color, pockets, buttons, waistband, belt loops, crease, fit, and silhouette. Ignore and remove any tags, labels, patches, retail tags, hanging tags, black tabs, price tags, paper tags, text marks, or branding visible in any source image.';
+  }
+
   if (input.productCategory !== 'Shirt') {
-    return 'Use all uploaded product images as reference images. If references conflict, preserve the clearest product detail visible in the uploaded images.';
+    return input.isManualColor
+      ? 'Use all uploaded product images as construction, design, texture, logo, shape, and detail references, but use the manual colour value as the final colour source of truth. If references conflict, preserve the clearest non-colour product detail visible in the uploaded images.'
+      : 'Use all uploaded product images as reference images. If references conflict, preserve the clearest product detail visible in the uploaded images.';
   }
 
   const references = [
@@ -15,7 +95,9 @@ export function buildReferencePhotoInstructions(input: GenerateProductViewInput)
   }
 
   if (input.fabricCloseupImage) {
-    references.push('- Fabric / pattern close-up: override AI guessing for true color, texture, plain finish, checks, stripes, print, and pattern density.');
+    references.push(input.isManualColor
+      ? '- Fabric / pattern close-up: override AI guessing for texture, plain finish, checks, stripes, print, and pattern density, but not final colour because manual colour is the source of truth.'
+      : '- Fabric / pattern close-up: override AI guessing for true color, texture, plain finish, checks, stripes, print, and pattern density.');
   }
 
   if (input.collarButtonCloseupImage) {
@@ -48,6 +130,7 @@ export function buildStudioConsistencyInstructions(input: GenerateProductViewInp
 
   return [
     `Output Background Style: ${style}. Use a ${background}.`,
+    buildInputColorLockInstruction(input),
     'All generated images must look like they were shot in a professional photography studio with DSLR equipment and soft-box lighting. They must NOT look like phone photos, table photos, or casual snapshots.',
     'Background consistency lock: front, side, back, and flatlay must feel like one premium e-commerce studio shoot.',
     'Use the same clean studio background style, same camera quality, same exposure, and same soft even lighting across all generated views.',
@@ -55,7 +138,9 @@ export function buildStudioConsistencyInstructions(input: GenerateProductViewInp
     'Default to clean light grey studio unless the selected Output Background Style says otherwise.',
     'Keep lighting consistent across front, side, back, and flatlay. Avoid dramatic lighting, warm color casts, uneven shadows, or background color shifts.',
     'Color consistency: preserve the same product color across all views. Do not make lavender more pink, purple, blue, or grey between images.',
-    'Use uploaded product/reference images as the color source of truth. If fabric close-up is provided, use it as the true color and fabric finish source.',
+    input.isManualColor
+      ? 'Manual colour source rule: use uploaded images for construction, design, texture, pockets, logos, shape, and details, but use the manual colour value as the final colour source of truth.'
+      : 'Auto-detect colour source rule: use uploaded product/reference images as the color source of truth. If fabric close-up is provided, use it as the true color and fabric finish source.',
     'Model consistency: keep the same model identity across front, side, and back as much as possible: same body type, hairstyle, age, and styling.',
     'Shirt consistency: same collar, same buttons, same placket, same pocket, same sleeve type, same fabric finish.',
     'Do not add or remove pocket between front, side, back, and flatlay.',
@@ -65,6 +150,12 @@ export function buildStudioConsistencyInstructions(input: GenerateProductViewInp
 }
 
 export function buildProductLockSummary(input: GenerateProductViewInput) {
+  if (isTrouserTaglessMode(input)) {
+    return input.isManualColor
+      ? 'Product source of truth: use the uploaded trouser image(s) as the reference for construction, fabric texture, pockets, buttons, waistband, belt loops, crease, fit, and silhouette only; use the manual colour value as final colour source of truth. Ignore and remove any tag, label, patch, retail tag, hanging tag, black tab, text mark, or branding visible in the source photo.'
+      : 'Product source of truth: use the uploaded trouser image(s) as the reference for construction, fabric, color, pockets, buttons, waistband, belt loops, crease, fit, and silhouette only. Ignore and remove any tag, label, patch, retail tag, hanging tag, black tab, text mark, or branding visible in the source photo.';
+  }
+
   if (input.productCategory !== 'Shirt') {
     return `Product source of truth: use the uploaded product image(s) as the exact reference. Do not redesign the ${input.productCategory.toLowerCase()}.`;
   }
@@ -212,9 +303,9 @@ function buildTrouserLogoInstructions(input: GenerateProductViewInput) {
 
   if (input.trouserTagBrandingVisibility === 'No visible tags or branding anywhere') {
     return [
-      ...sourceVisibleOnlyRules,
       'Tag / Branding Visibility rule: no visible tags or branding anywhere. Show zero tags, labels, tabs, patches, logos, text marks, hanging tags, paper tags, retail tags, waistband labels, or inner labels in front, back, texture, and flatlay outputs.',
-      'Model-worn rule: never show invented brand tags, tabs, labels, patches, or logos. Even if product has a retail hanging tag in a store photo, do not place it on model-worn trouser.',
+      'Tagless source rule: ignore and remove any tag-like artifact visible in the uploaded source photos, including hanging tags, retail tags, labels, black tabs, paper tags, price tags, waistband labels, inner labels, brand patches, text marks, and packaging elements.',
+      'Model-worn rule: show no brand tags, tabs, labels, patches, logos, text marks, black rectangles, or branding on the model-worn trouser. Even if product has a retail hanging tag in a store photo, remove it and do not place it on the model-worn trouser.',
     ].join(' ');
   }
 
@@ -307,10 +398,14 @@ function buildTrouserFitInstructions(input: GenerateProductViewInput) {
 
 function buildTrouserFabricFinishInstructions(input: GenerateProductViewInput) {
   if (input.trouserFabricFinish && input.trouserFabricFinish !== 'Auto Detect') {
-    return `Fabric finish rule: preserve the ${input.trouserFabricFinish.toLowerCase()} finish from the fabric close-up. Match true color, weave, fiber appearance, texture, and formal fabric finish.`;
+    return input.isManualColor
+      ? `Fabric finish rule: preserve the ${input.trouserFabricFinish.toLowerCase()} finish from the fabric close-up. Match weave, fiber appearance, texture, and formal fabric finish, but use the manual colour value as final colour.`
+      : `Fabric finish rule: preserve the ${input.trouserFabricFinish.toLowerCase()} finish from the fabric close-up. Match true color, weave, fiber appearance, texture, and formal fabric finish.`;
   }
 
-  return 'Fabric finish rule: use the fabric close-up as the true color, weave, texture, fiber appearance, and finish source of truth. Preserve fine woven/lycra texture if visible.';
+  return input.isManualColor
+    ? 'Fabric finish rule: use the fabric close-up as the weave, texture, fiber appearance, and finish source of truth, but use the manual colour value as final colour. Preserve fine woven/lycra texture if visible.'
+    : 'Fabric finish rule: use the fabric close-up as the true color, weave, texture, fiber appearance, and finish source of truth. Preserve fine woven/lycra texture if visible.';
 }
 
 export function buildTrouserForbiddenDesignInstructions() {
@@ -334,12 +429,20 @@ export function buildTrouserAccuracyInstructions(input: GenerateProductViewInput
     `- Fit: ${input.trouserFit || 'Auto Detect'}`,
     `- Fabric Finish: ${input.trouserFabricFinish || 'Auto Detect'}`,
     `- Tag / Branding Visibility: ${input.trouserTagBrandingVisibility || 'Auto Detect'}`,
-    'Source of truth: use uploaded trouser reference images as the exact source of truth.',
+    isTrouserTaglessMode(input)
+      ? 'Source of truth: use uploaded trouser reference images for trouser construction only. Ignore and remove tags, labels, patches, retail tags, hanging tags, and branding when tagless mode is selected.'
+      : input.isManualColor
+        ? 'Source of truth: use uploaded trouser reference images as the exact construction and detail source of truth, but use the manual colour value as final colour source of truth.'
+        : 'Source of truth: use uploaded trouser reference images as the exact source of truth.',
     'Front reference = front construction, front pockets, waistband, closure, crease, fit, silhouette, and formal trouser structure.',
     'Back reference = back pockets, buttons, waistband, belt loops, back construction, back crease, and pocket placement.',
-    'Fabric close-up = true color, weave, texture, fiber appearance, and finish.',
+    input.isManualColor
+      ? 'Fabric close-up = weave, texture, fiber appearance, and finish. Manual colour value = final colour source of truth.'
+      : 'Fabric close-up = true color, weave, texture, fiber appearance, and finish.',
     'Generated trouser must match the uploaded trouser, not a redesigned or inspired trouser.',
-    'Preserve exact color, fabric finish, waistband, belt loops, closure, pockets, buttons, pleats/front style, crease lines, fit, silhouette, and formal trouser structure.',
+    input.isManualColor
+      ? 'Preserve exact manual colour, fabric finish, waistband, belt loops, closure, pockets, buttons, pleats/front style, crease lines, fit, silhouette, and formal trouser structure.'
+      : 'Preserve exact color, fabric finish, waistband, belt loops, closure, pockets, buttons, pleats/front style, crease lines, fit, silhouette, and formal trouser structure.',
     buildTrouserForbiddenDesignInstructions(),
     buildTrouserLogoInstructions(input),
     buildTrouserFrontPocketInstructions(input),
@@ -365,8 +468,12 @@ export function buildProductAccuracyInstructions(input: GenerateProductViewInput
     buildProductLockSummary(input),
     buildReferencePhotoInstructions(input),
     buildStudioConsistencyInstructions(input),
-    'The uploaded product image is the source of truth. Generate the same product, not an inspired or redesigned product.',
-    'Product must not change. Preserve visible color, buttons, placket, collar, sleeve type, pocket state, pattern, proportions, and fabric appearance.',
+    input.isManualColor
+      ? 'The uploaded product image is the construction and design source of truth. Generate the same product, not an inspired or redesigned product, while using the manual colour value as final colour.'
+      : 'The uploaded product image is the source of truth. Generate the same product, not an inspired or redesigned product.',
+    input.isManualColor
+      ? 'Product must not change. Preserve buttons, placket, collar, sleeve type, pocket state, pattern, proportions, and fabric appearance, while using the manual colour value as final colour.'
+      : 'Product must not change. Preserve visible color, buttons, placket, collar, sleeve type, pocket state, pattern, proportions, and fabric appearance.',
     buildForbiddenDesignInstructions(input),
   ];
 
@@ -395,7 +502,9 @@ export function buildFlatlayAccuracyInstructions(input: GenerateProductViewInput
     'Lighting and background: evenly lit on a clean light grey or off-white studio background, matching the selected studio style and the model-view background family.',
     'Strict no-shadow rule: no harsh shadow, no camera shadow, no phone shadow, no photographer shadow, no hand shadow, no reflection shadow, no dark bottom shadow, no glass reflection, no dramatic lighting, and no uneven vignette.',
     'Strict clean-scene rule: no human hand, no mannequin/model body, no table clutter, no background objects, no lifestyle background, no room setting, no visible phone/camera reflection.',
-    'Product preservation rule: preserve exact shirt color, pocket, collar, buttons, placket, cuff, sleeve type, pattern, fabric finish, and visible construction details.',
+    input.isManualColor
+      ? 'Product preservation rule: preserve exact shirt pocket, collar, buttons, placket, cuff, sleeve type, pattern, fabric finish, and visible construction details, while using the manual colour value as final colour.'
+      : 'Product preservation rule: preserve exact shirt color, pocket, collar, buttons, placket, cuff, sleeve type, pattern, fabric finish, and visible construction details.',
     'Do not invent a logo, print, stripe, patch, sleeve band, embroidery, label, contrast panel, or new design detail.',
     'Packaging rule: do not treat packaging ribbon, price tag, hanging tag, retail tape, or black MITTY ribbon/tape as part of the shirt design.',
     'For a clean ecommerce flatlay, remove distracting packaging, tags, and ribbon if possible, but do not remove actual shirt details like pocket, buttons, collar, cuffs, placket, or pattern.',

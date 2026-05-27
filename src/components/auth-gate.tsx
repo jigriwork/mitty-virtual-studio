@@ -60,6 +60,20 @@ const resolveRole = async (user: User): Promise<AppRole> => {
   }
 };
 
+const clearStaleSupabaseSession = async (supabase: SupabaseClient) => {
+  try {
+    await supabase.auth.signOut({ scope: 'local' });
+  } catch {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    Object.keys(window.localStorage)
+      .filter((key) => key.startsWith('sb-') && key.endsWith('-auth-token'))
+      .forEach((key) => window.localStorage.removeItem(key));
+  }
+};
+
 type AuthGateProps = {
   children: (auth: AuthContextValue) => ReactNode;
 };
@@ -93,11 +107,23 @@ export function AuthGate({ children }: AuthGateProps) {
     });
 
     const loadSession = async () => {
-      const { data } = await supabaseClient.auth.getSession();
-      if (data.session?.user) {
-        setAuth(await buildAuthContext(data.session.user));
+      try {
+        const { data, error } = await supabaseClient.auth.getSession();
+        if (error) {
+          await clearStaleSupabaseSession(supabaseClient);
+          setAuth(null);
+          return;
+        }
+
+        if (data.session?.user) {
+          setAuth(await buildAuthContext(data.session.user));
+        }
+      } catch {
+        await clearStaleSupabaseSession(supabaseClient);
+        setAuth(null);
+      } finally {
+        setCheckingSession(false);
       }
-      setCheckingSession(false);
     };
 
     void loadSession();

@@ -50,16 +50,17 @@ const prompt = ai.definePrompt({
   Generate a complete SEO-ready content pack from the product details and uploaded image(s). Use natural, professional catalog language. Keep the copy premium and clear, never cheap, exaggerated, or keyword-stuffed.
 
   Core rules:
-  1. Determine the final color. If User-provided Color exists and is not N/A, use that exact value. Otherwise detect the primary product color from the image(s). Return it in detectedColor using a specific name such as Navy Blue, Olive Green, Beige, Teal, or Purple.
+  1. Determine the final color. If User-provided Color exists and is not N/A, detectedColor MUST exactly equal the User-provided Color, with the same shade wording. Do not override, reinterpret, lighten, darken, or replace a user-provided color based on uploaded image lighting. If User-provided Color is N/A, detect the primary product color from the image(s). Return it in detectedColor using a specific name such as Navy Blue, Olive Green, Beige, Teal, or Purple.
   2. productTitle MUST start with "Mitty".
   3. productDescription MUST exactly match longDescription for backward compatibility.
   4. Use Mitty branding naturally. Do not invent any brand name other than Mitty.
   5. Do not mention AI, prompts, generated images, discounts, price, sizes, warranty, stock, delivery, or availability.
   6. Do not claim exact fabric, cotton, premium cotton, breathable fabric, easy care, wrinkle-free finish, stretch, luxury fabric, leather, slim fit, waterproofing, sole technology, or long-lasting perfume performance unless it is explicitly provided in the product details.
   7. Prefer safe wording such as "designed for", "ideal for", "suitable for", "clean look", "smart styling", "smooth finish", "polished look", "pairs well with", and "gives a refined look".
-  8. Avoid generic repeated phrases. Make the pack specific to the product category, color, pattern, selected fields, and visible details.
+  8. Avoid generic repeated phrases. Make the pack specific to the product category, final color, pattern, selected fields, and visible details. If User-provided Color exists, productTitle, descriptions, alt text, and styling should use that exact colour wording.
   9. Slug must be lowercase, hyphenated, and based on the productTitle.
   10. Meta title should be concise. Meta description should be ecommerce-ready and under 160 characters when possible.
+  11. Gender/Target safety: If gender is Male, write for men's fashion/use. If gender is Female, write for women's fashion/use. If gender is Unisex, write for unisex use. Do not overclaim beyond the uploaded product, selected category, and provided product details.
 
   Category-specific guidance:
   - Shirt: mention full sleeve or half sleeve when selected. Mention color and pattern when provided or visible. Use office wear, smart casual, meetings, dinners, and everyday styling where relevant.

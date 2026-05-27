@@ -8,6 +8,7 @@ import {z} from 'genkit';
 import { type GenerateProductViewInput, GenerateProductViewInputSchema } from './types';
 import { requireGeneratedImage } from './image-output';
 import { IMAGE_GENERATION_MODEL } from './model-names';
+import { buildInputColorLockInstruction, buildProductOnlyNoPersonInstruction } from './product-accuracy-lock';
 
 const GeneratePerfumeHeroViewOutputSchema = z.object({
   perfumeHeroView: z.string().describe("A photorealistic hero image of the perfume bottle and box, as a data URI."),
@@ -25,8 +26,19 @@ const generatePerfumeHeroViewFlow = ai.defineFlow(
     outputSchema: GeneratePerfumeHeroViewOutputSchema,
   },
   async (input) => {
-    
-    const promptText = `Generate an ultra-realistic, high-resolution, professional e-commerce hero photograph showing the MITTY perfume bottle and its box together. This must look like a premium HD hero banner image shot in a professional photography studio with DSLR equipment, NOT a phone photo.\n\nUse the uploaded reference images for the bottle and box to ensure perfect accuracy.\n\nThe bottle should be positioned slightly in front of the box. The box can be at a slight angle to add depth. Both items must be on a clean, premium light background (soft beige or off-white seamless studio backdrop) with soft, natural shadows that ground them in the scene.\n\nLighting should be luxurious, even, and diffuse — suitable for a main product banner on a premium e-commerce website. No harsh shadows, no phone shadows, no warm color cast, no dramatic spotlight.\n\nEnsure both the bottle and box perfectly match the branding, colors, and design from the reference images. Do not add or change any text. Final output must be pin-sharp, high-detail, HD quality with professional studio aesthetics.`
+    const promptText = `Generate an ultra-realistic, high-resolution, professional e-commerce hero photograph showing the MITTY perfume bottle and its box together. This must look like a premium HD hero banner image shot in a professional photography studio with DSLR equipment, NOT a phone photo.
+
+${buildProductOnlyNoPersonInstruction()}
+
+${buildInputColorLockInstruction(input)}
+
+Use the uploaded reference images for the bottle and box to ensure perfect accuracy.
+
+The bottle should be positioned slightly in front of the box. The box can be at a slight angle to add depth. Both items must be on a clean, premium light background (soft beige or off-white seamless studio backdrop) with soft, natural shadows that ground them in the scene.
+
+Lighting should be luxurious, even, and diffuse, suitable for a main product banner on a premium e-commerce website. No harsh shadows, no phone shadows, no warm color cast, no dramatic spotlight.
+
+Ensure both the bottle and box perfectly match the branding and design from the reference images while following the colour lock for final product colour. Do not add or change any text. Final output must be pin-sharp, high-detail, HD quality with professional studio aesthetics.`;
 
     if (!input.bottleImageUri) {
        throw new Error('Bottle image is required for hero view.');

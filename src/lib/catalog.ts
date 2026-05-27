@@ -180,7 +180,7 @@ export const createCatalogDefaults = (
   gstPercent: defaults.defaultGstPercent || '5',
   productType: results.productCategory || '',
   sizeType: getDefaultSizeType(results.productCategory),
-  colour: results.detectedColor || results.color || '',
+  colour: results.effectiveColor || results.color || results.detectedColor || '',
   description: results.longDescription || results.productDescription || '',
   returnExchangeCondition: defaults.defaultReturnExchangeCondition,
   visibility: 'Visible',

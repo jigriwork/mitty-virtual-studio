@@ -68,6 +68,9 @@ export function ResultsDisplay({
       categoryTags,
       stylingSuggestions,
       detectedColor,
+      selectedColor,
+      effectiveColor,
+      isManualColor,
       frontView,
       sideView,
       backView,
@@ -75,6 +78,7 @@ export function ResultsDisplay({
       hdFlatlayImage,
       heroView,
       productCategory,
+      gender = 'Male',
       color,
       fitType,
       mrp,
@@ -131,6 +135,7 @@ export function ResultsDisplay({
     const txtContent = [
       `SEO Title: ${seoTitle}`,
       `Product Title: ${productTitle}`,
+      `Gender/Target: ${gender}`,
       `MRP: ${mrp?.trim() ? `₹${mrp.trim()}` : 'Not provided'}`,
       `Available Sizes / Quantity:\n${availableSizes?.some((row) => row.size.trim() || row.quantity.trim())
         ? availableSizes
@@ -147,7 +152,9 @@ export function ResultsDisplay({
       `Image Alt Texts:\n${imageAltTexts.map((altText) => `- ${altText}`).join('\n')}`,
       `Category Tags:\n${categoryTags.map((tag) => `- ${tag}`).join('\n')}`,
       `Styling Suggestions:\n${stylingSuggestions}`,
-      `Detected Color: ${detectedColor || color || 'N/A'}`,
+      `Selected Color: ${isManualColor ? selectedColor || color || 'N/A' : 'Auto Detect'}`,
+      `Detected Color: ${detectedColor || 'N/A'}`,
+      `Final Color Used: ${effectiveColor || color || detectedColor || 'N/A'}`,
     ].join('\n\n');
     zip.file('Product_Info.txt', txtContent);
 

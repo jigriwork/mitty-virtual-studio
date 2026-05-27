@@ -4,7 +4,7 @@ This app is an internal MITTY tool. It uses Google/Gemini/Genkit for generation,
 
 ## App Version
 
-- **Current version:** 2.0.0
+- **Current version:** 3.0.0
 - The version constant lives in `src/lib/app-version.ts`.
 - The version label is shown on the login page footer and the sidebar footer.
 
