@@ -115,7 +115,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Product Category</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
                     </FormControl>
@@ -224,7 +224,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Gender</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger>
                       </FormControl>
@@ -246,7 +246,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Target</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger><SelectValue placeholder="Select target audience" /></SelectTrigger>
                         </FormControl>
@@ -310,7 +310,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Sleeve Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger><SelectValue placeholder="Select sleeve type" /></SelectTrigger>
                         </FormControl>
@@ -338,7 +338,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Front Pocket</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
                               </FormControl>
@@ -358,7 +358,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Pattern Override</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
                               </FormControl>
@@ -381,7 +381,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Collar Type</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
                               </FormControl>
@@ -403,7 +403,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Visible Logo on Worn Shirt</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
                               </FormControl>
@@ -424,7 +424,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Output Background Style</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger><SelectValue placeholder="Clean Light Grey Studio" /></SelectTrigger>
                               </FormControl>
@@ -465,7 +465,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Material Stretch</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger><SelectValue placeholder="Is the material stretchable?" /></SelectTrigger>
                         </FormControl>
@@ -494,7 +494,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Front Pocket Type</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
                                 </FormControl>
@@ -515,7 +515,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Back Pocket Type</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
                                 </FormControl>
@@ -537,7 +537,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Visible Logo on Worn Trouser</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
                                 </FormControl>
@@ -557,7 +557,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Front Style</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
                                 </FormControl>
@@ -578,7 +578,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Crease</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
                                 </FormControl>
@@ -598,7 +598,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Fit</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
                                 </FormControl>
@@ -619,7 +619,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Fabric Finish</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
                                 </FormControl>
@@ -641,7 +641,7 @@ export function ProductForm({ form, onSubmit, isLoading }: ProductFormProps) {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Tag / Branding Visibility</FormLabel>
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                   <SelectTrigger><SelectValue placeholder="Auto Detect" /></SelectTrigger>
                                 </FormControl>

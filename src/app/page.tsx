@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { generateHdFlatlay } from '@/ai/flows/generate-hd-flatlay';
@@ -37,7 +37,9 @@ import { optimizeImage, estimatePayload, type OptimizedImage } from '@/lib/image
 import {
   WORKFLOW_DRAFT_UPDATED_EVENT,
   getSerializableProductFormDraft,
+  removeWorkflowDraftFile,
   readWorkflowDraft,
+  type WorkflowDraftFileField,
   writeWorkflowDraft,
 } from '@/lib/workflow-draft';
 import { incrementProductsGenerated } from '@/lib/workflow-metrics';
@@ -85,6 +87,49 @@ const defaultProductFormValues: ProductFormValues = {
   fragranceFamily: '',
   sizeMl: '',
 };
+
+const uploadFields: WorkflowDraftFileField[] = [
+  'productImage',
+  'openShirtImage',
+  'fabricCloseupImage',
+  'collarButtonCloseupImage',
+  'pocketLogoDetailImage',
+  'backSideImage',
+  'productImageFront',
+  'productImageFabric',
+  'productImageBack',
+  'bottleImageFile',
+  'boxFrontImageFile',
+  'boxBackImageFile',
+];
+
+const shirtSpecificFields: Array<keyof ProductFormValues> = [
+  'sleeveType',
+  'frontPocket',
+  'patternOverride',
+  'collarType',
+  'visibleLogo',
+  'outputBackgroundStyle',
+];
+
+const trouserSpecificFields: Array<keyof ProductFormValues> = [
+  'fitType',
+  'materialStretch',
+  'trouserFrontPocketType',
+  'trouserBackPocketType',
+  'trouserVisibleLogo',
+  'trouserFrontStyle',
+  'trouserCrease',
+  'trouserFit',
+  'trouserFabricFinish',
+  'trouserTagBrandingVisibility',
+];
+
+const perfumeSpecificFields: Array<keyof ProductFormValues> = [
+  'fragranceName',
+  'fragranceFamily',
+  'sizeMl',
+];
 
 const imageStepIdsByCategory: Record<ProductCategory, string[]> = {
   Shirt: ['front', 'side', 'back', 'flatlay'],
@@ -207,12 +252,28 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
   });
   const [draftHydrated, setDraftHydrated] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState<number | undefined>(undefined);
+  const userEditedBeforeDraftHydrationRef = useRef(false);
+  const previousCategoryRef = useRef<ProductCategory>(defaultProductFormValues.productCategory);
   const { toast } = useToast();
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: defaultProductFormValues,
   });
+
+  useEffect(() => {
+    if (draftHydrated) {
+      return;
+    }
+
+    const subscription = form.watch((_values, info) => {
+      if (info.type === 'change') {
+        userEditedBeforeDraftHydrationRef.current = true;
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [draftHydrated, form]);
 
   useEffect(() => {
     let cancelled = false;
@@ -224,22 +285,25 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
         return;
       }
 
-      if (draft?.formValues) {
+      const shouldRestoreDraft = !userEditedBeforeDraftHydrationRef.current;
+
+      if (draft?.formValues && shouldRestoreDraft) {
         form.reset({
           ...defaultProductFormValues,
           ...draft.formValues,
         });
       }
 
-      if (draft?.results) {
+      if (draft?.results && shouldRestoreDraft) {
         setResults(draft.results);
       }
 
-      if (draft?.productImageUris) {
+      if (draft?.productImageUris && shouldRestoreDraft) {
         setProductImageUris(draft.productImageUris);
       }
 
       setDraftSavedAt(draft?.updatedAt);
+      previousCategoryRef.current = form.getValues('productCategory');
       setDraftHydrated(true);
     };
 
@@ -256,6 +320,53 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
     window.addEventListener(WORKFLOW_DRAFT_UPDATED_EVENT, handleDraftUpdated);
     return () => window.removeEventListener(WORKFLOW_DRAFT_UPDATED_EVENT, handleDraftUpdated);
   }, []);
+
+  useEffect(() => {
+    if (!draftHydrated) {
+      return;
+    }
+
+    const resetFields = (fields: Array<keyof ProductFormValues>) => {
+      for (const field of fields) {
+        form.resetField(field, { defaultValue: defaultProductFormValues[field] });
+      }
+    };
+
+    const clearUploadFields = () => {
+      for (const field of uploadFields) {
+        form.setValue(field, null, { shouldDirty: true, shouldValidate: false });
+        void removeWorkflowDraftFile(field);
+      }
+    };
+
+    const subscription = form.watch((values, info) => {
+      const nextCategory = values.productCategory as ProductCategory | undefined;
+
+      if (info.name !== 'productCategory' || !nextCategory || nextCategory === previousCategoryRef.current) {
+        return;
+      }
+
+      previousCategoryRef.current = nextCategory;
+      clearUploadFields();
+      setProductImageUris({});
+      setResults(null);
+      setProgress({ status: 'idle', percent: 0, steps: [] });
+
+      if (nextCategory !== 'Shirt') {
+        resetFields(shirtSpecificFields);
+      }
+
+      if (nextCategory !== 'Trousers') {
+        resetFields(trouserSpecificFields);
+      }
+
+      if (nextCategory !== 'Perfume') {
+        resetFields(perfumeSpecificFields);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [draftHydrated, form]);
 
   useEffect(() => {
     if (!draftHydrated) {
@@ -405,31 +516,42 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
       const baseFlowInput: Partial<GenerateProductViewInput> = { 
         productCategory: data.productCategory,
         gender: data.gender,
-        sleeveType: data.sleeveType,
         fabricType: data.fabricType,
         color: selectedColor,
         selectedColor,
         isManualColor,
         pattern: data.pattern,
-        frontPocket: data.frontPocket,
-        patternOverride: data.patternOverride,
-        collarType: data.collarType,
-        visibleLogo: data.visibleLogo,
-        outputBackgroundStyle: data.outputBackgroundStyle,
-        fitType: data.fitType,
-        materialStretch: data.materialStretch,
-        trouserFrontPocketType: data.trouserFrontPocketType,
-        trouserBackPocketType: data.trouserBackPocketType,
-        trouserVisibleLogo: data.trouserVisibleLogo,
-        trouserFrontStyle: data.trouserFrontStyle,
-        trouserCrease: data.trouserCrease,
-        trouserFit: data.trouserFit,
-        trouserFabricFinish: data.trouserFabricFinish,
-        trouserTagBrandingVisibility: data.trouserTagBrandingVisibility,
-        fragranceName: data.fragranceName,
-        fragranceFamily: data.fragranceFamily,
-        sizeMl: data.sizeMl,
       };
+
+      if (data.productCategory === 'Shirt') {
+        Object.assign(baseFlowInput, {
+          sleeveType: data.sleeveType,
+          frontPocket: data.frontPocket,
+          patternOverride: data.patternOverride,
+          collarType: data.collarType,
+          visibleLogo: data.visibleLogo,
+          outputBackgroundStyle: data.outputBackgroundStyle,
+        });
+      } else if (data.productCategory === 'Trousers') {
+        Object.assign(baseFlowInput, {
+          fitType: data.fitType,
+          materialStretch: data.materialStretch,
+          trouserFrontPocketType: data.trouserFrontPocketType,
+          trouserBackPocketType: data.trouserBackPocketType,
+          trouserVisibleLogo: data.trouserVisibleLogo,
+          trouserFrontStyle: data.trouserFrontStyle,
+          trouserCrease: data.trouserCrease,
+          trouserFit: data.trouserFit,
+          trouserFabricFinish: data.trouserFabricFinish,
+          trouserTagBrandingVisibility: data.trouserTagBrandingVisibility,
+        });
+      } else if (data.productCategory === 'Perfume') {
+        Object.assign(baseFlowInput, {
+          fragranceName: data.fragranceName,
+          fragranceFamily: data.fragranceFamily,
+          sizeMl: data.sizeMl,
+        });
+      }
 
       if (data.productCategory === 'Trousers') {
         const [frontUri, fabricUri, backUri] = await Promise.all([
@@ -597,46 +719,62 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
     const flowInput: GenerateProductViewInput = {
       productCategory: data.productCategory,
       gender: data.gender,
-      sleeveType: data.sleeveType,
-      fitType: data.fitType,
-      materialStretch: data.materialStretch,
-      trouserFrontPocketType: data.trouserFrontPocketType,
-      trouserBackPocketType: data.trouserBackPocketType,
-      trouserVisibleLogo: data.trouserVisibleLogo,
-      trouserFrontStyle: data.trouserFrontStyle,
-      trouserCrease: data.trouserCrease,
-      trouserFit: data.trouserFit,
-      trouserFabricFinish: data.trouserFabricFinish,
-      trouserTagBrandingVisibility: data.trouserTagBrandingVisibility,
       fabricType: data.fabricType,
       pattern: data.pattern,
-      frontPocket: data.frontPocket,
-      patternOverride: data.patternOverride,
-      collarType: data.collarType,
-      visibleLogo: data.visibleLogo,
-      outputBackgroundStyle: data.outputBackgroundStyle,
-      fragranceFamily: data.fragranceFamily,
-      fragranceName: data.fragranceName,
-      sizeMl: data.sizeMl,
       color: effectiveColor,
       selectedColor,
       detectedColor,
       effectiveColor,
       isManualColor,
-      productImage: productImageUris.main,
-      mainProductImage: productImageUris.main,
-      openShirtImage: productImageUris.open,
-      fabricCloseupImage: productImageUris.fabricCloseup,
-      collarButtonCloseupImage: productImageUris.collarButton,
-      pocketLogoDetailImage: productImageUris.pocketLogoDetail,
-      backSideImage: productImageUris.shirtBack,
-      productImageFront: productImageUris.front,
-      productImageFabric: productImageUris.fabric,
-      productImageBack: productImageUris.back,
-      bottleImageUri: productImageUris.bottle,
-      boxFrontImageUri: productImageUris.boxFront,
-      boxBackImageUri: productImageUris.boxBack,
     };
+
+    if (data.productCategory === 'Shirt') {
+      Object.assign(flowInput, {
+        sleeveType: data.sleeveType,
+        frontPocket: data.frontPocket,
+        patternOverride: data.patternOverride,
+        collarType: data.collarType,
+        visibleLogo: data.visibleLogo,
+        outputBackgroundStyle: data.outputBackgroundStyle,
+        productImage: productImageUris.main,
+        mainProductImage: productImageUris.main,
+        openShirtImage: productImageUris.open,
+        fabricCloseupImage: productImageUris.fabricCloseup,
+        collarButtonCloseupImage: productImageUris.collarButton,
+        pocketLogoDetailImage: productImageUris.pocketLogoDetail,
+        backSideImage: productImageUris.shirtBack,
+      });
+    } else if (data.productCategory === 'Trousers') {
+      Object.assign(flowInput, {
+        fitType: data.fitType,
+        materialStretch: data.materialStretch,
+        trouserFrontPocketType: data.trouserFrontPocketType,
+        trouserBackPocketType: data.trouserBackPocketType,
+        trouserVisibleLogo: data.trouserVisibleLogo,
+        trouserFrontStyle: data.trouserFrontStyle,
+        trouserCrease: data.trouserCrease,
+        trouserFit: data.trouserFit,
+        trouserFabricFinish: data.trouserFabricFinish,
+        trouserTagBrandingVisibility: data.trouserTagBrandingVisibility,
+        productImageFront: productImageUris.front,
+        productImageFabric: productImageUris.fabric,
+        productImageBack: productImageUris.back,
+      });
+    } else if (data.productCategory === 'Perfume') {
+      Object.assign(flowInput, {
+        fragranceFamily: data.fragranceFamily,
+        fragranceName: data.fragranceName,
+        sizeMl: data.sizeMl,
+        bottleImageUri: productImageUris.bottle,
+        boxFrontImageUri: productImageUris.boxFront,
+        boxBackImageUri: productImageUris.boxBack,
+      });
+    } else {
+      Object.assign(flowInput, {
+        productImage: productImageUris.main,
+      });
+    }
+
     return flowInput;
   }
 
