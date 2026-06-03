@@ -1,8 +1,8 @@
 'use client';
 
 import JSZip from 'jszip';
-import { AlertCircle, CheckCircle2, Download, FileArchive, Loader2, RotateCcw } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { AlertCircle, CheckCircle2, Copy, Download, ExternalLink, FileArchive, Loader2, RotateCcw, Upload } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,13 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { downloadBlob } from '@/lib/file-actions';
+import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from '@/lib/supabase/client';
+import {
+  PRODUCT_IMAGES_BUCKET,
+  isPublicStorageUrl,
+  sanitizeStorageSegment,
+  uploadFileToPublicStorage,
+} from '@/lib/supabase/storage';
 import { cn } from '@/lib/utils';
 
 type ParsedSizeRow = {
@@ -52,6 +59,13 @@ type ImagePreview = {
   url: string;
 };
 
+type ImageAsset = ImagePreview & {
+  file: File;
+};
+
+type UploadStatus = 'Not uploaded' | 'Uploading' | 'Uploaded' | 'Failed';
+type CatalogImageSlot = 'image1' | 'image2' | 'image3' | 'image4';
+
 type ParsedProduct = {
   id: string;
   sourceName: string;
@@ -66,6 +80,11 @@ type ParsedProduct = {
   sizes: ParsedSizeRow[];
   images: Record<ImageRole, string>;
   imagePreviews: Record<ImageRole, ImagePreview | null>;
+  imageAssets: Record<ImageRole, ImageAsset | null>;
+  uploadStatus: UploadStatus;
+  imageUrls: Record<CatalogImageSlot, string>;
+  uploadErrors: string[];
+  uploadWarnings: string[];
   info: string[];
   reviewIssues: string[];
   warnings: string[];
@@ -82,6 +101,15 @@ const productCodePrefixes: Record<Exclude<ProductCategory, 'Unknown'>, string> =
   Shoes: 'MITTY-SHOES',
   Perfume: 'MITTY-PERFUME',
 };
+
+const imageRoleStorageNames: Record<ImageRole, string> = {
+  front: 'front.png',
+  side: 'side.png',
+  back: 'back.png',
+  flatLay: 'flatlay.png',
+};
+
+const imageSlots: CatalogImageSlot[] = ['image1', 'image2', 'image3', 'image4'];
 
 const productInfoLabels = [
   'SEO Title',
@@ -273,6 +301,38 @@ const createEmptyImagePreviews = (): Record<ImageRole, ImagePreview | null> => (
   flatLay: null,
 });
 
+const createEmptyImageAssets = (): Record<ImageRole, ImageAsset | null> => ({
+  front: null,
+  side: null,
+  back: null,
+  flatLay: null,
+});
+
+const createEmptyImageUrls = (): Record<CatalogImageSlot, string> => ({
+  image1: '',
+  image2: '',
+  image3: '',
+  image4: '',
+});
+
+const getImageSlotMapping = (category: ProductCategory): Record<CatalogImageSlot, ImageRole | null> => {
+  if (category === 'Trousers' || category === 'Jeans') {
+    return {
+      image1: 'front',
+      image2: 'back',
+      image3: 'flatLay',
+      image4: 'side',
+    };
+  }
+
+  return {
+    image1: 'front',
+    image2: 'side',
+    image3: 'back',
+    image4: 'flatLay',
+  };
+};
+
 const applyCategoryImageMessages = ({
   category,
   images,
@@ -336,6 +396,7 @@ const createParsedProduct = async ({
   const errors: string[] = [];
   const images = createEmptyImages();
   const imagePreviews = createEmptyImagePreviews();
+  const imageAssets = createEmptyImageAssets();
 
   if (!infoName) {
     errors.push('Product_Info.txt missing');
@@ -348,10 +409,16 @@ const createParsedProduct = async ({
     if (role && !images[role]) {
       images[role] = name;
       const blob = await zip.file(name)!.async('blob');
-      imagePreviews[role] = {
+      const fileName = name.split('/').pop() || `${role}.png`;
+      const file = new File([blob], fileName, { type: blob.type || 'image/png' });
+      const url = URL.createObjectURL(blob);
+      const asset = {
         name,
-        url: URL.createObjectURL(blob),
+        url,
+        file,
       };
+      imagePreviews[role] = asset;
+      imageAssets[role] = asset;
     }
   }
 
@@ -387,6 +454,11 @@ const createParsedProduct = async ({
     sizes,
     images,
     imagePreviews,
+    imageAssets,
+    uploadStatus: 'Not uploaded',
+    imageUrls: createEmptyImageUrls(),
+    uploadErrors: [],
+    uploadWarnings: [],
     info,
     reviewIssues,
     warnings,
@@ -436,6 +508,7 @@ const createReportCsv = (products: ParsedProduct[]) => {
     'Normalized Gender/Target',
     'Product Title',
     'Product Code',
+    'Upload Status',
     'MRP',
     'Colour',
     'Sizes Count',
@@ -444,6 +517,12 @@ const createReportCsv = (products: ParsedProduct[]) => {
     'Side Image',
     'Back Image',
     'Flat Lay Image',
+    'Image 1 URL',
+    'Image 2 URL',
+    'Image 3 URL',
+    'Image 4 URL',
+    'Upload Warnings',
+    'Upload Errors',
     'Info',
     'Review Issues',
     'Warnings',
@@ -456,6 +535,7 @@ const createReportCsv = (products: ParsedProduct[]) => {
     product.genderTarget,
     product.productTitle,
     product.productCode,
+    product.uploadStatus,
     product.mrp,
     product.colour,
     String(product.sizes.length),
@@ -464,6 +544,12 @@ const createReportCsv = (products: ParsedProduct[]) => {
     product.images.side,
     product.images.back,
     product.images.flatLay,
+    product.imageUrls.image1,
+    product.imageUrls.image2,
+    product.imageUrls.image3,
+    product.imageUrls.image4,
+    product.uploadWarnings.join(' | '),
+    product.uploadErrors.join(' | '),
     product.info.join(' | '),
     product.reviewIssues.join(' | '),
     product.warnings.join(' | '),
@@ -483,13 +569,39 @@ const revokeProductImageUrls = (products: ParsedProduct[]) => {
   }
 };
 
+const getUploadErrorMessage = (error: unknown) => {
+  const message = error instanceof Error ? error.message : 'Image upload failed.';
+  const normalized = message.toLowerCase();
+
+  if (
+    normalized.includes('auth')
+    || normalized.includes('permission')
+    || normalized.includes('policy')
+    || normalized.includes('row-level security')
+    || normalized.includes('unauthorized')
+    || normalized.includes('session')
+  ) {
+    return 'Image upload failed. Please check Supabase Storage permissions or login session.';
+  }
+
+  return message;
+};
+
 export function BulkCatalogImport() {
   const [files, setFiles] = useState<File[]>([]);
   const [products, setProducts] = useState<ParsedProduct[]>([]);
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [isParsing, setIsParsing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [parsedCount, setParsedCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [uploadProgress, setUploadProgress] = useState<{
+    currentProduct: number;
+    totalProducts: number;
+    productTitle: string;
+    imageLabel: string;
+  } | null>(null);
+  const productsRef = useRef<ParsedProduct[]>([]);
   const { toast } = useToast();
 
   const summary = useMemo(() => ({
@@ -504,11 +616,18 @@ export function BulkCatalogImport() {
     perfume: products.filter((product) => product.category === 'Perfume').length,
   }), [products]);
 
-  useEffect(() => () => {
-    revokeProductImageUrls(products);
+  useEffect(() => {
+    productsRef.current = products;
   }, [products]);
 
+  useEffect(() => () => {
+    revokeProductImageUrls(productsRef.current);
+  }, []);
+
   const progressValue = totalCount > 0 ? Math.round((parsedCount / totalCount) * 100) : 0;
+  const uploadProgressValue = uploadProgress && uploadProgress.totalProducts > 0
+    ? Math.round((uploadProgress.currentProduct / uploadProgress.totalProducts) * 100)
+    : 0;
 
   const clearImport = () => {
     revokeProductImageUrls(products);
@@ -517,6 +636,7 @@ export function BulkCatalogImport() {
     setImportErrors([]);
     setParsedCount(0);
     setTotalCount(0);
+    setUploadProgress(null);
   };
 
   const parseFiles = async () => {
@@ -606,30 +726,195 @@ export function BulkCatalogImport() {
     downloadBlob(new Blob([createReportCsv(products)], { type: 'text/csv;charset=utf-8;' }), 'mitty-bulk-import-parse-report.csv');
   };
 
+  const assertUploadSession = async () => {
+    if (!hasSupabaseBrowserConfig()) {
+      throw new Error('Image upload failed. Please check Supabase Storage permissions or login session.');
+    }
+
+    const supabase = getSupabaseBrowserClient();
+    const { data, error } = await supabase.auth.getSession();
+
+    if (error || !data.session) {
+      throw new Error('Image upload failed. Please check Supabase Storage permissions or login session.');
+    }
+  };
+
+  const updateProductUploadState = (productId: string, patch: Partial<ParsedProduct>) => {
+    setProducts((prev) => prev.map((product) => (
+      product.id === productId ? { ...product, ...patch } : product
+    )));
+  };
+
+  const uploadProductImages = async (product: ParsedProduct, productIndex: number, totalProducts: number) => {
+    const slotMapping = getImageSlotMapping(product.category);
+    const image1Role = slotMapping.image1;
+    const image1Asset = image1Role ? product.imageAssets[image1Role] : null;
+
+    if (product.status === 'Blocked' || !image1Role || !image1Asset) {
+      const reason = !image1Asset ? 'Image 1 is missing; upload skipped.' : 'Product is blocked; upload skipped.';
+      updateProductUploadState(product.id, {
+        uploadStatus: 'Failed',
+        uploadErrors: [reason],
+      });
+      return;
+    }
+
+    const requiredImageRole = image1Role;
+    updateProductUploadState(product.id, {
+      uploadStatus: 'Uploading',
+      uploadErrors: [],
+      uploadWarnings: [],
+    });
+
+    const folder = `bulk-catalog/${sanitizeStorageSegment(product.productCode)}`;
+    const uploadedRoleUrls: Partial<Record<ImageRole, string>> = {};
+    const uploadErrors: string[] = [];
+    const uploadWarnings: string[] = [];
+
+    const uploadRole = async (role: ImageRole, required: boolean) => {
+      const asset = product.imageAssets[role];
+
+      if (!asset) {
+        if (!required) uploadWarnings.push(`${role} image not present; URL left blank.`);
+        return;
+      }
+
+      setUploadProgress({
+        currentProduct: productIndex,
+        totalProducts,
+        productTitle: product.productTitle,
+        imageLabel: role === 'flatLay' ? 'flatlay' : role,
+      });
+
+      try {
+        const path = `${folder}/${imageRoleStorageNames[role]}`;
+        const publicUrl = await uploadFileToPublicStorage({
+          bucket: PRODUCT_IMAGES_BUCKET,
+          path,
+          file: asset.file,
+        });
+
+        if (!isPublicStorageUrl(publicUrl, PRODUCT_IMAGES_BUCKET)) {
+          throw new Error(`${asset.name}: upload returned an invalid public URL.`);
+        }
+
+        uploadedRoleUrls[role] = publicUrl;
+      } catch (error) {
+        const message = `${asset.name}: ${getUploadErrorMessage(error)}`;
+        if (required) {
+          uploadErrors.push(message);
+        } else {
+          uploadWarnings.push(message);
+        }
+      }
+    };
+
+    await uploadRole(requiredImageRole, true);
+
+    if (!uploadedRoleUrls[requiredImageRole]) {
+      updateProductUploadState(product.id, {
+        uploadStatus: 'Failed',
+        imageUrls: createEmptyImageUrls(),
+        uploadErrors,
+        uploadWarnings,
+      });
+      return;
+    }
+
+    const optionalRoles = Array.from(new Set(
+      imageSlots
+        .slice(1)
+        .map((slot) => slotMapping[slot])
+        .filter((role): role is ImageRole => Boolean(role))
+    ));
+
+    for (const role of optionalRoles) {
+      await uploadRole(role, false);
+    }
+
+    const imageUrls = createEmptyImageUrls();
+    for (const slot of imageSlots) {
+      const role = slotMapping[slot];
+      imageUrls[slot] = role ? uploadedRoleUrls[role] || '' : '';
+    }
+
+    updateProductUploadState(product.id, {
+      uploadStatus: 'Uploaded',
+      imageUrls,
+      uploadErrors,
+      uploadWarnings,
+    });
+  };
+
+  const uploadImages = async (onlyFailed = false) => {
+    const uploadTargets = products.filter((product) => (
+      onlyFailed ? product.uploadStatus === 'Failed' : product.uploadStatus !== 'Uploaded'
+    ));
+
+    if (uploadTargets.length === 0) {
+      toast({ title: 'Nothing to upload', description: 'No parsed products need image upload.' });
+      return;
+    }
+
+    try {
+      await assertUploadSession();
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Upload blocked',
+        description: getUploadErrorMessage(error),
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress({ currentProduct: 0, totalProducts: uploadTargets.length, productTitle: '', imageLabel: '' });
+
+    try {
+      for (let index = 0; index < uploadTargets.length; index += 1) {
+        await uploadProductImages(uploadTargets[index], index + 1, uploadTargets.length);
+      }
+
+      toast({ title: 'Image upload finished', description: `${uploadTargets.length} product(s) processed.` });
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(null);
+    }
+  };
+
   return (
     <section className="grid gap-5">
       <div className="rounded-lg border border-black/10 bg-white/85 p-5 shadow-sm backdrop-blur">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className="bg-[#171717] text-[#f4d99f] hover:bg-[#171717]">Phase 1</Badge>
+              <Badge className="bg-[#171717] text-[#f4d99f] hover:bg-[#171717]">Phase 2</Badge>
               <Badge variant="outline">Browser ZIP parser</Badge>
+              <Badge variant="outline">Supabase image upload</Badge>
             </div>
             <h2 className="mt-3 text-2xl font-semibold text-[#171717]">Bulk Catalog Import</h2>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
               Parse MITTY product ZIPs locally, preview product fields, and catch catalog issues before image upload or export.
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[32rem]">
-            <Button onClick={() => void parseFiles()} disabled={isParsing || files.length === 0} className="h-10 bg-[#171717] text-white hover:bg-[#2a2a2a]">
+          <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[42rem] lg:grid-cols-5">
+            <Button onClick={() => void parseFiles()} disabled={isParsing || isUploading || files.length === 0} className="h-10 bg-[#171717] text-white hover:bg-[#2a2a2a]">
               {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileArchive className="mr-2 h-4 w-4" />}
               Parse ZIPs
+            </Button>
+            <Button variant="outline" onClick={() => void uploadImages()} disabled={isUploading || products.length === 0} className="h-10">
+              {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              Upload Images
+            </Button>
+            <Button variant="outline" onClick={() => void uploadImages(true)} disabled={isUploading || !products.some((product) => product.uploadStatus === 'Failed')} className="h-10">
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Retry Failed
             </Button>
             <Button variant="outline" onClick={downloadReport} disabled={products.length === 0} className="h-10">
               <Download className="mr-2 h-4 w-4" />
               Parse Report
             </Button>
-            <Button variant="outline" onClick={clearImport} disabled={isParsing && products.length === 0} className="h-10">
+            <Button variant="outline" onClick={clearImport} disabled={isParsing || isUploading} className="h-10">
               <RotateCcw className="mr-2 h-4 w-4" />
               Clear Import
             </Button>
@@ -652,8 +937,10 @@ export function BulkCatalogImport() {
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>{files.length} selected file(s)</span>
-            <span>Images stay local in this phase.</span>
-            <span>No Supabase upload or catalog export is performed.</span>
+            <span>ZIP files stay local.</span>
+            <span>Extracted images upload only when you choose.</span>
+            <span>ZIPs are never sent to the server.</span>
+            <span>No final catalog export is performed.</span>
           </div>
           {(isParsing || parsedCount > 0) && (
             <div className="grid gap-2">
@@ -662,6 +949,18 @@ export function BulkCatalogImport() {
                 <span>{progressValue}%</span>
               </div>
               <Progress value={progressValue} className="h-2" />
+            </div>
+          )}
+          {(isUploading || uploadProgress) && (
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between gap-3 text-xs font-medium text-muted-foreground">
+                <span>
+                  Uploading product {uploadProgress?.currentProduct || 0} of {uploadProgress?.totalProducts || 0}
+                  {uploadProgress?.productTitle ? `: ${uploadProgress.productTitle}` : ''}
+                </span>
+                <span>{uploadProgress?.imageLabel ? `Image: ${uploadProgress.imageLabel}` : `${uploadProgressValue}%`}</span>
+              </div>
+              <Progress value={uploadProgressValue} className="h-2" />
             </div>
           )}
         </div>
@@ -674,6 +973,8 @@ export function BulkCatalogImport() {
             <Badge className="bg-emerald-700 text-white hover:bg-emerald-700">{summary.ready} ready</Badge>
             <Badge className="bg-amber-600 text-white hover:bg-amber-600">{summary.review} review</Badge>
             <Badge className="bg-red-700 text-white hover:bg-red-700">{summary.blocked} blocked</Badge>
+            <Badge variant="outline">{products.filter((product) => product.uploadStatus === 'Uploaded').length} uploaded</Badge>
+            <Badge variant="outline">{products.filter((product) => product.uploadStatus === 'Failed').length} upload failed</Badge>
             <Badge variant="outline">{summary.shirts} shirts</Badge>
             <Badge variant="outline">{summary.trousers} trousers</Badge>
             <Badge variant="outline">{summary.jeans} jeans</Badge>
@@ -696,6 +997,7 @@ export function BulkCatalogImport() {
                 <TableHead className="min-w-72">Product Title</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead className="min-w-36">Product Code</TableHead>
+                <TableHead className="min-w-32">Upload Status</TableHead>
                 <TableHead>MRP</TableHead>
                 <TableHead className="min-w-32">Colour</TableHead>
                 <TableHead className="min-w-32">Gender/Target</TableHead>
@@ -704,6 +1006,10 @@ export function BulkCatalogImport() {
                 <TableHead>Side Image</TableHead>
                 <TableHead>Back Image</TableHead>
                 <TableHead>Flat Lay Image</TableHead>
+                <TableHead>Image 1 URL</TableHead>
+                <TableHead>Image 2 URL</TableHead>
+                <TableHead>Image 3 URL</TableHead>
+                <TableHead>Image 4 URL</TableHead>
                 <TableHead className="min-w-80">Missing Fields / Warnings</TableHead>
               </TableRow>
             </TableHeader>
@@ -721,6 +1027,20 @@ export function BulkCatalogImport() {
                   </TableCell>
                   <TableCell>{product.category === 'Unknown' ? 'Needs Review' : product.category}</TableCell>
                   <TableCell className="font-mono text-xs">{product.productCode}</TableCell>
+                  <TableCell>
+                    <UploadStatusBadge status={product.uploadStatus} />
+                    {product.uploadStatus === 'Failed' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isUploading}
+                        onClick={() => void uploadImages(true)}
+                        className="mt-2 h-8"
+                      >
+                        Retry
+                      </Button>
+                    )}
+                  </TableCell>
                   <TableCell>{product.mrp || 'Needs Review'}</TableCell>
                   <TableCell>{product.colour || 'Needs Review'}</TableCell>
                   <TableCell>{product.genderTarget || 'Needs Review'}</TableCell>
@@ -739,14 +1059,24 @@ export function BulkCatalogImport() {
                   <ImageCell preview={product.imagePreviews.side} />
                   <ImageCell preview={product.imagePreviews.back} />
                   <ImageCell preview={product.imagePreviews.flatLay} />
+                  <UrlCell url={product.imageUrls.image1} required />
+                  <UrlCell url={product.imageUrls.image2} />
+                  <UrlCell url={product.imageUrls.image3} />
+                  <UrlCell url={product.imageUrls.image4} />
                   <TableCell>
-                    {[...product.errors, ...product.reviewIssues, ...product.warnings, ...product.info].length > 0 ? (
+                    {[...product.errors, ...product.reviewIssues, ...product.uploadErrors, ...product.uploadWarnings, ...product.warnings, ...product.info].length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {product.errors.map((error) => (
                           <Badge key={error} variant="destructive">{error}</Badge>
                         ))}
+                        {product.uploadErrors.map((error) => (
+                          <Badge key={error} variant="destructive">{error}</Badge>
+                        ))}
                         {product.reviewIssues.map((issue) => (
                           <Badge key={issue} className="bg-amber-600 text-white hover:bg-amber-600">{issue}</Badge>
+                        ))}
+                        {product.uploadWarnings.map((warning) => (
+                          <Badge key={warning} className="bg-blue-100 text-blue-900 hover:bg-blue-100">{warning}</Badge>
                         ))}
                         {product.warnings.map((warning) => (
                           <Badge key={warning} className="bg-amber-100 text-amber-900 hover:bg-amber-100">{warning}</Badge>
@@ -782,6 +1112,50 @@ function StatusBadge({ status }: { status: ParsedProduct['status'] }) {
       {status === 'Ready' ? <CheckCircle2 className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
       {status}
     </Badge>
+  );
+}
+
+function UploadStatusBadge({ status }: { status: UploadStatus }) {
+  const className = cn(
+    'inline-flex items-center gap-1',
+    status === 'Uploaded' && 'bg-emerald-700 text-white hover:bg-emerald-700',
+    status === 'Uploading' && 'bg-blue-700 text-white hover:bg-blue-700',
+    status === 'Failed' && 'bg-red-700 text-white hover:bg-red-700'
+  );
+
+  return (
+    <Badge variant={status === 'Not uploaded' ? 'outline' : 'default'} className={className}>
+      {status === 'Uploading' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+      {status}
+    </Badge>
+  );
+}
+
+function UrlCell({ url, required }: { url: string; required?: boolean }) {
+  const copyUrl = async () => {
+    await navigator.clipboard.writeText(url);
+  };
+
+  if (!url) {
+    return (
+      <TableCell>
+        <Badge variant={required ? 'destructive' : 'outline'}>{required ? 'Required' : 'Blank'}</Badge>
+      </TableCell>
+    );
+  }
+
+  return (
+    <TableCell>
+      <div className="flex items-center gap-1">
+        <Badge className="bg-emerald-700 text-white hover:bg-emerald-700">URL ready</Badge>
+        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => void copyUrl()} title="Copy URL">
+          <Copy className="h-4 w-4" />
+        </Button>
+        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')} title="Open URL">
+          <ExternalLink className="h-4 w-4" />
+        </Button>
+      </div>
+    </TableCell>
   );
 }
 
