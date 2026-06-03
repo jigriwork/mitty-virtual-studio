@@ -16,6 +16,7 @@ import { generatePerfumeHeroView } from '@/ai/flows/generate-perfume-hero-view';
 
 import { AppShell, type AppSection } from '@/components/app-shell';
 import { AuthGate, type AuthContextValue } from '@/components/auth-gate';
+import { BulkCatalogImport } from '@/components/bulk-catalog-import';
 import { CatalogDefaultsSettings } from '@/components/catalog-defaults-settings';
 import { PlaceholderSection } from '@/components/placeholder-section';
 import { ProductForm } from '@/components/product-form';
@@ -920,6 +921,10 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
 
     if (activeSection === 'products') {
       return <ProductHistory />;
+    }
+
+    if (activeSection === 'bulkImport') {
+      return <BulkCatalogImport />;
     }
 
     if (activeSection === 'staff' && auth.role !== 'owner') {

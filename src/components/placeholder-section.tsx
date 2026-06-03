@@ -3,6 +3,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import type { AppSection } from './app-shell';
 
 const copy: Record<Exclude<AppSection, 'studio'>, { title: string; body: string }> = {
+  bulkImport: {
+    title: 'Bulk Catalog Import',
+    body: 'Bulk ZIP parsing and catalog preview tools will appear here.',
+  },
   products: {
     title: 'Products',
     body: 'Product history, saved uploads, and generated asset libraries will appear here in a later release.',

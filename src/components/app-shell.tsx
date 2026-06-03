@@ -2,6 +2,7 @@
 
 import {
   CheckCircle2,
+  FileArchive,
   LayoutDashboard,
   LogOut,
   Package,
@@ -14,7 +15,7 @@ import { MittyLogo } from '@/components/mitty-logo';
 import { APP_VERSION, APP_VERSION_LABEL } from '@/lib/app-version';
 import { cn } from '@/lib/utils';
 
-export type AppSection = 'studio' | 'products' | 'review' | 'settings' | 'staff';
+export type AppSection = 'studio' | 'bulkImport' | 'products' | 'review' | 'settings' | 'staff';
 
 type NavItem = {
   id: AppSection;
@@ -24,6 +25,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { id: 'studio', label: 'Studio', icon: LayoutDashboard },
+  { id: 'bulkImport', label: 'Bulk Import', icon: FileArchive },
   { id: 'products', label: 'Products', icon: Package },
   { id: 'review', label: 'Review', icon: CheckCircle2 },
   { id: 'settings', label: 'Settings', icon: Settings },
@@ -93,7 +95,9 @@ function SidebarNav({
   onSectionChange,
   userRole,
 }: Pick<AppShellProps, 'activeSection' | 'onSectionChange' | 'userRole'>) {
-  const visibleNavItems = navItems.filter((item) => item.id !== 'staff' || userRole === 'owner');
+  const visibleNavItems = navItems.filter((item) =>
+    item.id !== 'review' && (item.id !== 'staff' || userRole === 'owner')
+  );
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 border-r border-black/10 bg-[#111111] p-4 text-white lg:block">
@@ -135,7 +139,9 @@ function MobileNav({
   onSectionChange,
   userRole,
 }: Pick<AppShellProps, 'activeSection' | 'onSectionChange' | 'userRole'>) {
-  const visibleNavItems = navItems.filter((item) => item.id !== 'staff' || userRole === 'owner');
+  const visibleNavItems = navItems.filter((item) =>
+    item.id !== 'review' && (item.id !== 'staff' || userRole === 'owner')
+  );
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-[#111111]/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 text-white shadow-2xl backdrop-blur-xl lg:hidden">
