@@ -93,6 +93,14 @@ export type SavedCatalogItem = CatalogFormValues & {
 
 export const CATALOG_STORAGE_KEY = 'mitty-catalog-builder-items';
 export const CATALOG_DEFAULTS_STORAGE_KEY = 'mitty-catalog-defaults';
+export const DEFAULT_PICKUP_ADDRESS_CODE = 'mitty ho';
+export const DEFAULT_RETURN_EXCHANGE_CONDITION = '3 days return/exchange after delivery only for size issues.';
+
+export const getAutoGstPercent = (mrp: string | number) => {
+  const value = typeof mrp === 'number' ? mrp : Number(String(mrp).replace(/,/g, '').trim());
+  if (!Number.isFinite(value)) return '';
+  return value <= 2500 ? '5' : '18';
+};
 
 export type CatalogDefaults = {
   defaultGstPercent: string;
@@ -112,8 +120,8 @@ export type CatalogDefaults = {
 
 export const EMPTY_CATALOG_DEFAULTS: CatalogDefaults = {
   defaultGstPercent: '',
-  defaultPickupAddressCode: '',
-  defaultReturnExchangeCondition: '3 days return/exchange only for size issues',
+  defaultPickupAddressCode: DEFAULT_PICKUP_ADDRESS_CODE,
+  defaultReturnExchangeCondition: DEFAULT_RETURN_EXCHANGE_CONDITION,
   shirtHsnCode: '',
   trouserHsnCode: '',
   jeansHsnCode: '',
@@ -141,9 +149,9 @@ export const getCategoryHsnCode = (
   category: GenerationResults['productCategory'],
   defaults: CatalogDefaults
 ) => {
-  if (category === 'Shirt') return defaults.shirtHsnCode;
-  if (category === 'Trousers') return defaults.trouserHsnCode;
-  if (category === 'Jeans') return defaults.jeansHsnCode;
+  if (category === 'Shirt') return defaults.shirtHsnCode.trim() || '6205';
+  if (category === 'Trousers') return defaults.trouserHsnCode.trim() || '6203';
+  if (category === 'Jeans') return defaults.jeansHsnCode.trim() || '6203';
   if (category === 'Shoes') return defaults.shoesHsnCode;
   return defaults.perfumeHsnCode;
 };
@@ -177,7 +185,7 @@ export const createCatalogDefaults = (
   packagingBreadth: '',
   packagingHeight: '',
   packagingWeight: '',
-  gstPercent: defaults.defaultGstPercent || '5',
+  gstPercent: defaults.defaultGstPercent || getAutoGstPercent(results.mrp || '') || '5',
   productType: results.productCategory || '',
   sizeType: getDefaultSizeType(results.productCategory),
   colour: results.effectiveColor || results.color || results.detectedColor || '',

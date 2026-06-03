@@ -17,6 +17,16 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import {
+  CATALOG_DEFAULTS_STORAGE_KEY,
+  DEFAULT_PICKUP_ADDRESS_CODE,
+  DEFAULT_RETURN_EXCHANGE_CONDITION,
+  type CatalogDefaults,
+  getAutoGstPercent,
+  getCategoryHsnCode,
+  getCategorySizeChartUrl,
+  mergeCatalogDefaults,
+} from '@/lib/catalog';
 import { downloadBlob } from '@/lib/file-actions';
 import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from '@/lib/supabase/client';
 import {
@@ -110,6 +120,57 @@ const imageRoleStorageNames: Record<ImageRole, string> = {
 };
 
 const imageSlots: CatalogImageSlot[] = ['image1', 'image2', 'image3', 'image4'];
+
+const finalCatalogHeaders = [
+  'Product Code',
+  'Amazon ASIN',
+  'Name',
+  'Sku Id',
+  'Selling Price',
+  'MRP',
+  'Cost Price',
+  'Quantity',
+  'Packaging Length (in cm)',
+  'Packaging Breadth (in cm)',
+  'Packaging Height (in cm)',
+  'Packaging Weight (in kg)',
+  'Size',
+  'attr_Fabric',
+  'GST %',
+  '',
+  'Image 1',
+  'Image 2',
+  'Image 3',
+  'Image 4',
+  'Image 5',
+  'Image 6',
+  'Image 7',
+  'Image 8',
+  'Image 9',
+  'Image 10',
+  'Video 1',
+  'Video 2',
+  'Product Type',
+  'Colour',
+  'Description',
+  'Return/Exchange Condition',
+  'Visibility',
+  'Size Chart',
+  'Pickup Address Code',
+  'HSN Code',
+  'Customisation Id',
+  'Associated Pixel',
+  'Size Type',
+  'attr_Type',
+  'attr_Ideal For',
+  'attr_Occasion',
+  'attr_Fit',
+  'attr_Product Type',
+  'attr_Color',
+  'attr_Fit/ Shape',
+  'attr_Pattern',
+  'attr_Pack Of',
+] as const;
 
 const productInfoLabels = [
   'SEO Title',
@@ -559,6 +620,240 @@ const createReportCsv = (products: ParsedProduct[]) => {
   return [headers, ...rows].map((row) => row.map(escapeCsvValue).join(',')).join('\r\n');
 };
 
+const readCatalogDefaults = () => {
+  try {
+    const stored = window.localStorage.getItem(CATALOG_DEFAULTS_STORAGE_KEY);
+    return stored ? mergeCatalogDefaults(JSON.parse(stored) as Partial<CatalogDefaults>) : mergeCatalogDefaults(null);
+  } catch {
+    return mergeCatalogDefaults(null);
+  }
+};
+
+const toCatalogCategory = (category: ProductCategory) => {
+  if (category === 'Unknown') return null;
+  return category;
+};
+
+const getProductDescription = (product: ParsedProduct) => {
+  const description = product.fields.longDescription || product.fields.shortDescription || '';
+
+  if (description && product.fields.bulletFeatures) {
+    return `${description}\n\nBullet Features:\n${product.fields.bulletFeatures}`;
+  }
+
+  return description || product.fields.bulletFeatures;
+};
+
+const getAttrType = (product: ParsedProduct) => {
+  const text = getSearchText(product.productTitle, product.fields.longDescription, product.fields.shortDescription);
+
+  if (/\bfull sleeve shirt\b/.test(text)) return 'Full Sleeve Shirt';
+  if (/\bhalf sleeve shirt\b/.test(text)) return 'Half Sleeve Shirt';
+  if (product.category === 'Trousers') return /\bformal\b/.test(text) ? 'Formal Trouser' : 'Trousers';
+
+  return '';
+};
+
+const getAttrPattern = (product: ParsedProduct) => {
+  const text = getSearchText(product.productTitle, product.fields.longDescription, product.fields.shortDescription, product.fields.bulletFeatures);
+
+  if (/\b(check|checked)\b/.test(text)) return 'Check';
+  if (/\bfloral\b/.test(text)) return 'Floral';
+  if (/\b(solid|plain)\b/.test(text)) return 'Solid';
+  if (/\b(stripe|striped)\b/.test(text)) return 'Striped';
+  if (/\bprinted\b/.test(text)) return 'Printed';
+
+  return '';
+};
+
+const getExplicitAttribute = (product: ParsedProduct, patterns: RegExp[]) => {
+  const text = `${product.productTitle}\n${product.fields.longDescription}\n${product.fields.shortDescription}\n${product.fields.bulletFeatures}`;
+  const match = patterns.map((pattern) => text.match(pattern)?.[1]?.trim()).find(Boolean);
+  return match || '';
+};
+
+const getCatalogDefaultsForProduct = (product: ParsedProduct, defaults: CatalogDefaults) => {
+  const catalogCategory = toCatalogCategory(product.category);
+
+  if (!catalogCategory) {
+    return { hsnCode: '', sizeChartUrl: '' };
+  }
+
+  return {
+    hsnCode: getCategoryHsnCode(catalogCategory, defaults),
+    sizeChartUrl: getCategorySizeChartUrl(catalogCategory, defaults),
+  };
+};
+
+const getPickupAddressCode = (defaults: CatalogDefaults) =>
+  defaults.defaultPickupAddressCode.trim() || DEFAULT_PICKUP_ADDRESS_CODE;
+
+const getReturnExchangeCondition = (defaults: CatalogDefaults) =>
+  defaults.defaultReturnExchangeCondition.trim() || DEFAULT_RETURN_EXCHANGE_CONDITION;
+
+const getVisibility = () => 'visible';
+
+const getFinalExportValidation = (products: ParsedProduct[], defaults: CatalogDefaults) => {
+  const defaultIssues: string[] = [];
+  const productIssues: string[] = [];
+  const affectedCounts: string[] = [];
+  const blockedProductLabels = new Set<string>();
+  let rowCount = 0;
+  const productsMissingImage1 = products.filter((product) => !product.imageUrls.image1.trim());
+  const imageUploadIssue = productsMissingImage1.length > 0
+    ? {
+      message: 'Images are not uploaded yet. Click Upload Images to create public image URLs before downloading the final catalog CSV.',
+      productsNeedingUpload: products.filter((product) => product.uploadStatus !== 'Uploaded' || !product.imageUrls.image1.trim()).length,
+      missingImage1Count: productsMissingImage1.length,
+    }
+    : null;
+  const categoryCounts = products.reduce<Record<ProductCategory, number>>((acc, product) => {
+    acc[product.category] += 1;
+    return acc;
+  }, {
+    Shirt: 0,
+    Trousers: 0,
+    Jeans: 0,
+    Shoes: 0,
+    Perfume: 0,
+    Unknown: 0,
+  });
+
+  if (products.length === 0) {
+    productIssues.push('Parse products before downloading the final catalog CSV.');
+  }
+
+  if (!getPickupAddressCode(defaults)) defaultIssues.push('Pickup Address Code');
+  if (!getReturnExchangeCondition(defaults)) defaultIssues.push('Return/Exchange Condition');
+  if (categoryCounts.Shirt > 0 && !defaults.shirtSizeChartUrl.trim()) {
+    defaultIssues.push('Shirt Size Chart URL');
+    affectedCounts.push(`Shirts affected: ${categoryCounts.Shirt}`);
+  }
+  if (categoryCounts.Trousers > 0 && !defaults.trouserSizeChartUrl.trim()) {
+    defaultIssues.push('Trouser Size Chart URL');
+    affectedCounts.push(`Trousers affected: ${categoryCounts.Trousers}`);
+  }
+  if (categoryCounts.Shoes > 0 && !defaults.shoesHsnCode.trim()) {
+    defaultIssues.push('Shoes HSN Code');
+    affectedCounts.push(`Shoes affected: ${categoryCounts.Shoes}`);
+  }
+  if (categoryCounts.Perfume > 0 && !defaults.perfumeHsnCode.trim()) {
+    defaultIssues.push('Perfume HSN Code');
+    affectedCounts.push(`Perfume affected: ${categoryCounts.Perfume}`);
+  }
+
+  for (const product of products) {
+    rowCount += product.sizes.length;
+    const label = product.productTitle || product.sourceName;
+    const productErrors: string[] = [];
+    const mrpValue = Number(product.mrp);
+
+    if (product.errors.includes('Product_Info.txt missing')) productErrors.push('Product_Info.txt missing.');
+    if (product.category === 'Unknown') productErrors.push('category unknown.');
+    if (!product.productCode.trim()) productErrors.push('product code missing.');
+    if (!product.productTitle.trim()) productErrors.push('product title missing.');
+    if (!product.mrp.trim() || !Number.isFinite(mrpValue) || mrpValue <= 0) productErrors.push('MRP missing or invalid.');
+    if (product.sizes.length === 0) productErrors.push('sizes missing.');
+    if (productErrors.length > 0) {
+      blockedProductLabels.add(label);
+      productIssues.push(...productErrors.map((error) => `${label}: ${error}`));
+    }
+  }
+
+  const errors = [
+    ...(imageUploadIssue ? [imageUploadIssue.message] : []),
+    ...defaultIssues,
+    ...productIssues,
+  ];
+
+  return {
+    affectedCounts,
+    blockedProducts: blockedProductLabels.size,
+    defaultIssues,
+    errors,
+    imageUploadIssue,
+    productIssues,
+    rowCount,
+    ready: errors.length === 0,
+  };
+};
+
+const createFinalCatalogCsv = (products: ParsedProduct[], defaults: CatalogDefaults) => {
+  const rows = products.flatMap((product) => {
+    const productDefaults = getCatalogDefaultsForProduct(product, defaults);
+    const description = getProductDescription(product);
+    const attrType = getAttrType(product);
+    const attrPattern = getAttrPattern(product);
+    const attrFabric = getExplicitAttribute(product, [
+      /\bcrafted from\s+([^,.]+)/i,
+      /\bfabric:\s*([^,\n]+)/i,
+      /\b(cotton(?: blend)?|denim|polyester|linen|viscose)\b/i,
+    ]);
+    const attrFit = getExplicitAttribute(product, [
+      /\b(regular fit|slim fit|relaxed fit|tailored fit|straight fit)\b/i,
+    ]);
+    const attrOccasion = getExplicitAttribute(product, [
+      /\b(casual|formal|semi-formal|smart casual|office wear|party wear)\b/i,
+    ]);
+
+    return product.sizes.map((sizeRow) => ({
+      'Product Code': product.productCode,
+      'Amazon ASIN': '',
+      Name: product.productTitle,
+      'Sku Id': `${product.productCode}-${sizeRow.size}`,
+      'Selling Price': product.mrp,
+      MRP: product.mrp,
+      'Cost Price': product.mrp,
+      Quantity: sizeRow.quantity,
+      'Packaging Length (in cm)': '',
+      'Packaging Breadth (in cm)': '',
+      'Packaging Height (in cm)': '',
+      'Packaging Weight (in kg)': '',
+      Size: sizeRow.size,
+      attr_Fabric: attrFabric,
+      'GST %': getAutoGstPercent(product.mrp),
+      '': '',
+      'Image 1': product.imageUrls.image1,
+      'Image 2': product.imageUrls.image2,
+      'Image 3': product.imageUrls.image3,
+      'Image 4': product.imageUrls.image4,
+      'Image 5': '',
+      'Image 6': '',
+      'Image 7': '',
+      'Image 8': '',
+      'Image 9': '',
+      'Image 10': '',
+      'Video 1': '',
+      'Video 2': '',
+      'Product Type': product.category === 'Unknown' ? '' : product.category,
+      Colour: product.colour,
+      Description: description,
+      'Return/Exchange Condition': getReturnExchangeCondition(defaults),
+      Visibility: getVisibility(),
+      'Size Chart': productDefaults.sizeChartUrl,
+      'Pickup Address Code': getPickupAddressCode(defaults),
+      'HSN Code': productDefaults.hsnCode,
+      'Customisation Id': '',
+      'Associated Pixel': '',
+      'Size Type': 'size',
+      attr_Type: attrType,
+      'attr_Ideal For': product.genderTarget,
+      attr_Occasion: attrOccasion,
+      attr_Fit: attrFit,
+      'attr_Product Type': product.category === 'Unknown' ? '' : product.category,
+      attr_Color: product.colour,
+      'attr_Fit/ Shape': attrFit,
+      attr_Pattern: attrPattern,
+      'attr_Pack Of': '1',
+    } satisfies Record<(typeof finalCatalogHeaders)[number], string>));
+  });
+
+  return [
+    finalCatalogHeaders.join(','),
+    ...rows.map((row) => finalCatalogHeaders.map((header) => escapeCsvValue(row[header])).join(',')),
+  ].join('\r\n');
+};
+
 const revokeProductImageUrls = (products: ParsedProduct[]) => {
   for (const product of products) {
     for (const preview of Object.values(product.imagePreviews)) {
@@ -587,7 +882,11 @@ const getUploadErrorMessage = (error: unknown) => {
   return message;
 };
 
-export function BulkCatalogImport() {
+type BulkCatalogImportProps = {
+  onOpenCatalogDefaults?: () => void;
+};
+
+export function BulkCatalogImport({ onOpenCatalogDefaults }: BulkCatalogImportProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [products, setProducts] = useState<ParsedProduct[]>([]);
   const [importErrors, setImportErrors] = useState<string[]>([]);
@@ -601,6 +900,7 @@ export function BulkCatalogImport() {
     productTitle: string;
     imageLabel: string;
   } | null>(null);
+  const [catalogDefaults, setCatalogDefaults] = useState<CatalogDefaults>(() => mergeCatalogDefaults(null));
   const productsRef = useRef<ParsedProduct[]>([]);
   const { toast } = useToast();
 
@@ -620,6 +920,17 @@ export function BulkCatalogImport() {
     productsRef.current = products;
   }, [products]);
 
+  useEffect(() => {
+    const refreshDefaults = () => setCatalogDefaults(readCatalogDefaults());
+    refreshDefaults();
+    window.addEventListener('storage', refreshDefaults);
+    window.addEventListener('mitty-catalog-defaults-updated', refreshDefaults);
+    return () => {
+      window.removeEventListener('storage', refreshDefaults);
+      window.removeEventListener('mitty-catalog-defaults-updated', refreshDefaults);
+    };
+  }, []);
+
   useEffect(() => () => {
     revokeProductImageUrls(productsRef.current);
   }, []);
@@ -628,6 +939,11 @@ export function BulkCatalogImport() {
   const uploadProgressValue = uploadProgress && uploadProgress.totalProducts > 0
     ? Math.round((uploadProgress.currentProduct / uploadProgress.totalProducts) * 100)
     : 0;
+  const finalExportValidation = useMemo(
+    () => getFinalExportValidation(products, catalogDefaults),
+    [catalogDefaults, products]
+  );
+  const finalCsvDisabled = products.length === 0 || Boolean(finalExportValidation.imageUploadIssue);
 
   const clearImport = () => {
     revokeProductImageUrls(products);
@@ -724,6 +1040,22 @@ export function BulkCatalogImport() {
     }
 
     downloadBlob(new Blob([createReportCsv(products)], { type: 'text/csv;charset=utf-8;' }), 'mitty-bulk-import-parse-report.csv');
+  };
+
+  const downloadFinalCatalog = () => {
+    if (!finalExportValidation.ready) {
+      toast({
+        variant: 'destructive',
+        title: 'Final catalog not ready',
+        description: finalExportValidation.errors.slice(0, 3).join(' '),
+      });
+      return;
+    }
+
+    downloadBlob(
+      new Blob([createFinalCatalogCsv(products, catalogDefaults)], { type: 'text/csv;charset=utf-8;' }),
+      'mitty-final-catalog.csv'
+    );
   };
 
   const assertUploadSession = async () => {
@@ -888,36 +1220,52 @@ export function BulkCatalogImport() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge className="bg-[#171717] text-[#f4d99f] hover:bg-[#171717]">Phase 2</Badge>
+              <Badge className="bg-[#171717] text-[#f4d99f] hover:bg-[#171717]">Phase 3</Badge>
               <Badge variant="outline">Browser ZIP parser</Badge>
               <Badge variant="outline">Supabase image upload</Badge>
             </div>
             <h2 className="mt-3 text-2xl font-semibold text-[#171717]">Bulk Catalog Import</h2>
             <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-              Parse MITTY product ZIPs locally, preview product fields, and catch catalog issues before image upload or export.
+              Parse MITTY product ZIPs locally, preview product fields, upload public image URLs, and download the final catalog CSV.
             </p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[42rem] lg:grid-cols-5">
-            <Button onClick={() => void parseFiles()} disabled={isParsing || isUploading || files.length === 0} className="h-10 bg-[#171717] text-white hover:bg-[#2a2a2a]">
-              {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileArchive className="mr-2 h-4 w-4" />}
-              Parse ZIPs
-            </Button>
-            <Button variant="outline" onClick={() => void uploadImages()} disabled={isUploading || products.length === 0} className="h-10">
-              {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-              Upload Images
-            </Button>
-            <Button variant="outline" onClick={() => void uploadImages(true)} disabled={isUploading || !products.some((product) => product.uploadStatus === 'Failed')} className="h-10">
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Retry Failed
-            </Button>
-            <Button variant="outline" onClick={downloadReport} disabled={products.length === 0} className="h-10">
-              <Download className="mr-2 h-4 w-4" />
-              Parse Report
-            </Button>
-            <Button variant="outline" onClick={clearImport} disabled={isParsing || isUploading} className="h-10">
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Clear Import
-            </Button>
+          <div className="flex w-full flex-col gap-2 lg:w-auto lg:max-w-[52rem]">
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => void parseFiles()} disabled={isParsing || isUploading || files.length === 0} className="h-10 min-w-32 bg-[#171717] text-white hover:bg-[#2a2a2a]">
+                {isParsing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileArchive className="mr-2 h-4 w-4" />}
+                Parse ZIPs
+              </Button>
+              <Button variant="outline" onClick={() => void uploadImages()} disabled={isUploading || products.length === 0} className="h-10 min-w-36">
+                {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                Upload Images
+              </Button>
+              <Button
+                variant="outline"
+                onClick={downloadFinalCatalog}
+                disabled={finalCsvDisabled}
+                className="h-10 min-w-28"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Final CSV
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={downloadReport} disabled={products.length === 0} className="h-10 min-w-24">
+                <Download className="mr-2 h-4 w-4" />
+                Report
+              </Button>
+              <Button variant="outline" onClick={() => void uploadImages(true)} disabled={isUploading || !products.some((product) => product.uploadStatus === 'Failed')} className="h-10 min-w-32">
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Retry Failed
+              </Button>
+              <Button variant="outline" onClick={clearImport} disabled={isParsing || isUploading} className="h-10 min-w-32">
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Clear Import
+              </Button>
+            </div>
+            {finalExportValidation.imageUploadIssue && (
+              <p className="text-xs font-medium text-amber-700">Upload images first to unlock final CSV.</p>
+            )}
           </div>
         </div>
 
@@ -940,7 +1288,7 @@ export function BulkCatalogImport() {
             <span>ZIP files stay local.</span>
             <span>Extracted images upload only when you choose.</span>
             <span>ZIPs are never sent to the server.</span>
-            <span>No final catalog export is performed.</span>
+            <span>Final catalog export only downloads when you click it.</span>
           </div>
           {(isParsing || parsedCount > 0) && (
             <div className="grid gap-2">
@@ -961,6 +1309,65 @@ export function BulkCatalogImport() {
                 <span>{uploadProgress?.imageLabel ? `Image: ${uploadProgress.imageLabel}` : `${uploadProgressValue}%`}</span>
               </div>
               <Progress value={uploadProgressValue} className="h-2" />
+            </div>
+          )}
+          {products.length > 0 && (
+            <div className={cn(
+              'grid gap-2 rounded-lg border p-3 text-sm',
+              finalExportValidation.ready
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                : 'border-amber-200 bg-amber-50 text-amber-950'
+            )}>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className={finalExportValidation.ready ? 'bg-emerald-700 text-white hover:bg-emerald-700' : 'bg-amber-600 text-white hover:bg-amber-600'}>
+                  {finalExportValidation.ready ? 'Final CSV ready' : 'Final CSV blocked'}
+                </Badge>
+                <Badge variant="outline">{finalExportValidation.rowCount} catalog rows</Badge>
+                {finalExportValidation.imageUploadIssue && (
+                  <Badge variant="outline">{finalExportValidation.imageUploadIssue.productsNeedingUpload} products need upload</Badge>
+                )}
+                <Badge variant="outline">{finalExportValidation.blockedProducts} product data blocker(s)</Badge>
+              </div>
+              {!finalExportValidation.ready && (
+                <div className="grid gap-3 text-xs leading-5">
+                  {finalExportValidation.imageUploadIssue && (
+                    <div className="rounded-md border border-amber-300 bg-amber-100/70 p-3">
+                      <p className="font-semibold">{finalExportValidation.imageUploadIssue.message}</p>
+                      <p>Products needing upload: {finalExportValidation.imageUploadIssue.productsNeedingUpload}</p>
+                      <p>Required Image 1 URLs missing: {finalExportValidation.imageUploadIssue.missingImage1Count}</p>
+                    </div>
+                  )}
+                  {finalExportValidation.defaultIssues.length > 0 && (
+                    <div>
+                      <p className="font-semibold">Missing Catalog Defaults:</p>
+                      <ul className="list-inside list-disc">
+                        {finalExportValidation.defaultIssues.map((issue) => (
+                          <li key={issue}>{issue}</li>
+                        ))}
+                      </ul>
+                      {finalExportValidation.affectedCounts.map((count) => (
+                        <p key={count}>{count}</p>
+                      ))}
+                      {onOpenCatalogDefaults && (
+                        <Button type="button" variant="outline" size="sm" onClick={onOpenCatalogDefaults} className="mt-2 h-8">
+                          Open Catalog Defaults
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  {finalExportValidation.productIssues.length > 0 && (
+                    <div>
+                      <p className="font-semibold">Product-level blockers:</p>
+                      {finalExportValidation.productIssues.slice(0, 8).map((error) => (
+                        <p key={error}>{error}</p>
+                      ))}
+                      {finalExportValidation.productIssues.length > 8 && (
+                        <p>{finalExportValidation.productIssues.length - 8} more product issue(s). Fix upload/defaults before final export.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

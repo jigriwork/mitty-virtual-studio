@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { generateHdFlatlay } from '@/ai/flows/generate-hd-flatlay';
@@ -915,27 +916,29 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
   );
 
   const renderSection = () => {
+    let sectionContent: ReactNode = null;
+
     if (activeSection === 'studio') {
-      return studioContent;
+      sectionContent = studioContent;
+    } else if (activeSection === 'products') {
+      sectionContent = <ProductHistory />;
+    } else if (activeSection === 'staff' && auth.role !== 'owner') {
+      sectionContent = <PlaceholderSection section="settings" />;
+    } else if (activeSection !== 'bulkImport' && activeSection !== 'settings') {
+      sectionContent = <PlaceholderSection section={activeSection} />;
     }
 
-    if (activeSection === 'products') {
-      return <ProductHistory />;
-    }
-
-    if (activeSection === 'bulkImport') {
-      return <BulkCatalogImport />;
-    }
-
-    if (activeSection === 'staff' && auth.role !== 'owner') {
-      return <PlaceholderSection section="settings" />;
-    }
-
-    if (activeSection === 'settings') {
-      return <CatalogDefaultsSettings role={auth.role} />;
-    }
-
-    return <PlaceholderSection section={activeSection} />;
+    return (
+      <>
+        <div className={activeSection === 'bulkImport' ? 'block' : 'hidden'}>
+          <BulkCatalogImport onOpenCatalogDefaults={() => setActiveSection('settings')} />
+        </div>
+        <div className={activeSection === 'settings' ? 'block' : 'hidden'}>
+          <CatalogDefaultsSettings role={auth.role} />
+        </div>
+        {sectionContent}
+      </>
+    );
   };
 
   return (

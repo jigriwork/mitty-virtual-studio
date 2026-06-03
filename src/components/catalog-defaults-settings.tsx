@@ -1,6 +1,6 @@
 'use client';
 
-import { RotateCcw, Save } from 'lucide-react';
+import { Copy, ExternalLink, Loader2, RotateCcw, Save, Upload } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
   CATALOG_DEFAULTS_STORAGE_KEY,
@@ -9,6 +9,8 @@ import {
   mergeCatalogDefaults,
 } from '@/lib/catalog';
 import { useToast } from '@/hooks/use-toast';
+import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from '@/lib/supabase/client';
+import { SIZE_CHARTS_BUCKET, isPublicStorageUrl, uploadFileToPublicStorage } from '@/lib/supabase/storage';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -45,15 +47,19 @@ const hsnFields: TextField[] = [
 ];
 
 const sizeChartFields: TextField[] = [
-  { key: 'shirtSizeChartUrl', label: 'Shirt Size Chart URL' },
-  { key: 'trouserSizeChartUrl', label: 'Trouser Size Chart URL' },
   { key: 'jeansSizeChartUrl', label: 'Jeans Size Chart URL' },
   { key: 'shoesSizeChartUrl', label: 'Shoes Size Chart URL' },
   { key: 'perfumeSizeChartUrl', label: 'Perfume Size Chart URL' },
 ];
 
+const sizeChartUploadPaths = {
+  shirtSizeChartUrl: 'size-charts/shirt-size-chart.png',
+  trouserSizeChartUrl: 'size-charts/trouser-size-chart.png',
+} satisfies Partial<Record<keyof CatalogDefaults, string>>;
+
 export function CatalogDefaultsSettings({ role }: CatalogDefaultsSettingsProps) {
   const [defaults, setDefaults] = useState<CatalogDefaults>(EMPTY_CATALOG_DEFAULTS);
+  const [uploadingField, setUploadingField] = useState<keyof CatalogDefaults | null>(null);
   const { toast } = useToast();
   const canEdit = role === 'owner';
 
@@ -70,9 +76,13 @@ export function CatalogDefaultsSettings({ role }: CatalogDefaultsSettingsProps) 
     setDefaults((prev) => ({ ...prev, [field]: value }));
   };
 
-  const saveDefaults = () => {
-    window.localStorage.setItem(CATALOG_DEFAULTS_STORAGE_KEY, JSON.stringify(defaults));
+  const persistDefaults = (nextDefaults: CatalogDefaults) => {
+    window.localStorage.setItem(CATALOG_DEFAULTS_STORAGE_KEY, JSON.stringify(nextDefaults));
     window.dispatchEvent(new Event('mitty-catalog-defaults-updated'));
+  };
+
+  const saveDefaults = () => {
+    persistDefaults(defaults);
     toast({ title: 'Catalog defaults saved', description: 'New catalog entries will use these defaults.' });
   };
 
@@ -81,6 +91,50 @@ export function CatalogDefaultsSettings({ role }: CatalogDefaultsSettingsProps) 
     window.localStorage.removeItem(CATALOG_DEFAULTS_STORAGE_KEY);
     window.dispatchEvent(new Event('mitty-catalog-defaults-updated'));
     toast({ title: 'Catalog defaults cleared' });
+  };
+
+  const uploadSizeChart = async (field: keyof typeof sizeChartUploadPaths, file: File | undefined) => {
+    if (!file || !canEdit) {
+      return;
+    }
+
+    setUploadingField(field);
+
+    try {
+      if (!hasSupabaseBrowserConfig()) {
+        throw new Error('missing-config');
+      }
+
+      const supabase = getSupabaseBrowserClient();
+      const { data, error } = await supabase.auth.getSession();
+
+      if (error || !data.session) {
+        throw new Error('missing-session');
+      }
+
+      const publicUrl = await uploadFileToPublicStorage({
+        bucket: SIZE_CHARTS_BUCKET,
+        path: sizeChartUploadPaths[field],
+        file,
+      });
+
+      if (!isPublicStorageUrl(publicUrl, SIZE_CHARTS_BUCKET)) {
+        throw new Error('invalid-public-url');
+      }
+
+      const nextDefaults = { ...defaults, [field]: publicUrl };
+      setDefaults(nextDefaults);
+      persistDefaults(nextDefaults);
+      toast({ title: 'Size chart uploaded', description: 'The public URL was saved in Catalog Defaults.' });
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: 'Size chart upload failed',
+        description: 'Size chart upload failed. Please check Supabase Storage permissions or login session.',
+      });
+    } finally {
+      setUploadingField(null);
+    }
   };
 
   return (
@@ -142,6 +196,24 @@ export function CatalogDefaultsSettings({ role }: CatalogDefaultsSettingsProps) 
           <div className="grid gap-4">
             <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-[#8a6635]">Size chart URLs</h3>
             <div className="grid gap-4 md:grid-cols-2">
+              <SizeChartUploadField
+                label="Shirt Size Chart"
+                value={defaults.shirtSizeChartUrl}
+                disabled={!canEdit}
+                isUploading={uploadingField === 'shirtSizeChartUrl'}
+                onChange={(value) => updateField('shirtSizeChartUrl', value)}
+                onUpload={(file) => void uploadSizeChart('shirtSizeChartUrl', file)}
+              />
+              <SizeChartUploadField
+                label="Trouser Size Chart"
+                value={defaults.trouserSizeChartUrl}
+                disabled={!canEdit}
+                isUploading={uploadingField === 'trouserSizeChartUrl'}
+                onChange={(value) => updateField('trouserSizeChartUrl', value)}
+                onUpload={(file) => void uploadSizeChart('trouserSizeChartUrl', file)}
+              />
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
               {sizeChartFields.map((field) => (
                 <Field
                   key={field.key}
@@ -182,6 +254,79 @@ export function CatalogDefaultsSettings({ role }: CatalogDefaultsSettingsProps) 
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function SizeChartUploadField({
+  label,
+  value,
+  onChange,
+  onUpload,
+  disabled,
+  isUploading,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  onUpload: (file: File | undefined) => void;
+  disabled?: boolean;
+  isUploading?: boolean;
+}) {
+  const copyUrl = async () => {
+    if (value) {
+      await navigator.clipboard.writeText(value);
+    }
+  };
+
+  return (
+    <div className="grid gap-3 rounded-lg border border-black/10 p-3">
+      <Label>{label}</Label>
+      <div className="grid gap-2">
+        <Input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          disabled={disabled}
+          placeholder="Upload an image to create the public URL"
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="outline" disabled={disabled || isUploading} asChild>
+            <label className="cursor-pointer">
+              {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              Upload Image
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="sr-only"
+                onChange={(event) => {
+                  onUpload(event.target.files?.[0]);
+                  event.currentTarget.value = '';
+                }}
+              />
+            </label>
+          </Button>
+          <Button type="button" variant="ghost" size="icon" disabled={!value} onClick={() => void copyUrl()} title="Copy URL">
+            <Copy className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={!value}
+            onClick={() => window.open(value, '_blank', 'noopener,noreferrer')}
+            title="Open URL"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      {value && (
+        <a href={value} target="_blank" rel="noreferrer" className="block w-fit">
+          {/* Supabase public image URLs are user-managed assets. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={value} alt={`${label} preview`} className="h-28 w-28 rounded border border-black/10 bg-white object-cover" />
+        </a>
+      )}
     </div>
   );
 }
