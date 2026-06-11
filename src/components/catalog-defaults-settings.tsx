@@ -3,13 +3,17 @@
 import { Copy, ExternalLink, Loader2, RotateCcw, Save, Upload } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
-  CATALOG_DEFAULTS_STORAGE_KEY,
   EMPTY_CATALOG_DEFAULTS,
   type CatalogDefaults,
-  mergeCatalogDefaults,
 } from '@/lib/catalog';
+import {
+  cacheAndNotifyCatalogDefaults,
+  getSafeCatalogDefaultsErrorMessage,
+  loadCatalogDefaults,
+  readLocalCatalogDefaults,
+  saveCatalogDefaultsToSupabase,
+} from '@/lib/catalog-defaults-store';
 import { useToast } from '@/hooks/use-toast';
-import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from '@/lib/supabase/client';
 import { SIZE_CHARTS_BUCKET, isPublicStorageUrl, uploadFileToPublicStorage } from '@/lib/supabase/storage';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -53,43 +57,86 @@ const sizeChartFields: TextField[] = [
 ];
 
 const sizeChartUploadPaths = {
-  shirtSizeChartUrl: 'size-charts/shirt-size-chart.png',
-  trouserSizeChartUrl: 'size-charts/trouser-size-chart.png',
+  shirtSizeChartUrl: 'shirt-size-chart.png',
+  trouserSizeChartUrl: 'trouser-size-chart.png',
 } satisfies Partial<Record<keyof CatalogDefaults, string>>;
 
 export function CatalogDefaultsSettings({ role }: CatalogDefaultsSettingsProps) {
   const [defaults, setDefaults] = useState<CatalogDefaults>(EMPTY_CATALOG_DEFAULTS);
   const [uploadingField, setUploadingField] = useState<keyof CatalogDefaults | null>(null);
+  const [loadingDefaults, setLoadingDefaults] = useState(true);
+  const [savingDefaults, setSavingDefaults] = useState(false);
+  const [defaultsSource, setDefaultsSource] = useState<'supabase' | 'localStorage' | 'built-in'>('built-in');
+  const [loadWarning, setLoadWarning] = useState('');
   const { toast } = useToast();
   const canEdit = role === 'owner';
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(CATALOG_DEFAULTS_STORAGE_KEY);
-      setDefaults(stored ? mergeCatalogDefaults(JSON.parse(stored) as Partial<CatalogDefaults>) : EMPTY_CATALOG_DEFAULTS);
-    } catch {
-      setDefaults(EMPTY_CATALOG_DEFAULTS);
-    }
+    let isMounted = true;
+
+    const loadDefaults = async () => {
+      setLoadingDefaults(true);
+      const result = await loadCatalogDefaults();
+
+      if (!isMounted) {
+        return;
+      }
+
+      setDefaults(result.defaults);
+      setDefaultsSource(result.source);
+      setLoadWarning(result.errorMessage || '');
+      setLoadingDefaults(false);
+    };
+
+    void loadDefaults();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const updateField = (field: keyof CatalogDefaults, value: string) => {
     setDefaults((prev) => ({ ...prev, [field]: value }));
   };
 
-  const persistDefaults = (nextDefaults: CatalogDefaults) => {
-    window.localStorage.setItem(CATALOG_DEFAULTS_STORAGE_KEY, JSON.stringify(nextDefaults));
-    window.dispatchEvent(new Event('mitty-catalog-defaults-updated'));
+  const saveDefaults = async (nextDefaults = defaults) => {
+    if (!canEdit) {
+      return;
+    }
+
+    setSavingDefaults(true);
+
+    try {
+      const savedDefaults = await saveCatalogDefaultsToSupabase(nextDefaults);
+      setDefaults(savedDefaults);
+      setDefaultsSource('supabase');
+      setLoadWarning('');
+      toast({ title: 'Catalog defaults saved', description: 'Defaults are saved in Supabase and cached on this browser.' });
+    } catch (error) {
+      cacheAndNotifyCatalogDefaults(nextDefaults);
+      toast({
+        variant: 'destructive',
+        title: 'Catalog defaults saved locally only',
+        description: `Supabase save failed. ${getSafeCatalogDefaultsErrorMessage(error)}`,
+      });
+    } finally {
+      setSavingDefaults(false);
+    }
   };
 
-  const saveDefaults = () => {
-    persistDefaults(defaults);
-    toast({ title: 'Catalog defaults saved', description: 'New catalog entries will use these defaults.' });
+  const syncLocalDefaults = async () => {
+    if (!canEdit) {
+      return;
+    }
+
+    const localDefaults = readLocalCatalogDefaults();
+    setDefaults(localDefaults);
+    await saveDefaults(localDefaults);
   };
 
-  const clearDefaults = () => {
+  const clearDefaults = async () => {
     setDefaults(EMPTY_CATALOG_DEFAULTS);
-    window.localStorage.removeItem(CATALOG_DEFAULTS_STORAGE_KEY);
-    window.dispatchEvent(new Event('mitty-catalog-defaults-updated'));
+    await saveDefaults(EMPTY_CATALOG_DEFAULTS);
     toast({ title: 'Catalog defaults cleared' });
   };
 
@@ -101,17 +148,6 @@ export function CatalogDefaultsSettings({ role }: CatalogDefaultsSettingsProps) 
     setUploadingField(field);
 
     try {
-      if (!hasSupabaseBrowserConfig()) {
-        throw new Error('missing-config');
-      }
-
-      const supabase = getSupabaseBrowserClient();
-      const { data, error } = await supabase.auth.getSession();
-
-      if (error || !data.session) {
-        throw new Error('missing-session');
-      }
-
       const publicUrl = await uploadFileToPublicStorage({
         bucket: SIZE_CHARTS_BUCKET,
         path: sizeChartUploadPaths[field],
@@ -124,13 +160,16 @@ export function CatalogDefaultsSettings({ role }: CatalogDefaultsSettingsProps) 
 
       const nextDefaults = { ...defaults, [field]: publicUrl };
       setDefaults(nextDefaults);
-      persistDefaults(nextDefaults);
-      toast({ title: 'Size chart uploaded', description: 'The public URL was saved in Catalog Defaults.' });
-    } catch {
+      const savedDefaults = await saveCatalogDefaultsToSupabase(nextDefaults);
+      setDefaults(savedDefaults);
+      setDefaultsSource('supabase');
+      setLoadWarning('');
+      toast({ title: 'Size chart uploaded', description: 'The public URL was saved in Supabase Catalog Defaults.' });
+    } catch (error) {
       toast({
         variant: 'destructive',
         title: 'Size chart upload failed',
-        description: 'Size chart upload failed. Please check Supabase Storage permissions or login session.',
+        description: `Size chart upload failed. Please check login session, file type, file size, or Supabase Storage permissions. ${getSafeCatalogDefaultsErrorMessage(error)}`,
       });
     } finally {
       setUploadingField(null);
@@ -146,11 +185,22 @@ export function CatalogDefaultsSettings({ role }: CatalogDefaultsSettingsProps) 
               <div className="flex flex-wrap items-center gap-2">
                 <Badge className="bg-[#171717] text-[#f4d99f] hover:bg-[#171717]">Settings</Badge>
                 <Badge variant="outline">{canEdit ? 'Owner editable' : 'Read only'}</Badge>
+                <Badge variant="outline">{loadingDefaults ? 'Loading defaults' : `Source: ${defaultsSource}`}</Badge>
               </div>
               <h2 className="mt-3 text-2xl font-semibold text-[#171717]">Catalog Defaults</h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Saved on this browser and applied automatically when a product is added to the Mitty catalog.
+                Saved centrally in Supabase and cached on this browser for fallback.
               </p>
+              {!canEdit && (
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                  Only owner can upload or edit catalog defaults. Staff can use saved defaults.
+                </p>
+              )}
+              {loadWarning && (
+                <p className="mt-2 max-w-2xl rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-900">
+                  Supabase defaults could not be loaded, so local cached defaults are being used. {loadWarning}
+                </p>
+              )}
             </div>
           </div>
 
@@ -247,9 +297,13 @@ export function CatalogDefaultsSettings({ role }: CatalogDefaultsSettingsProps) 
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-            <Button type="button" onClick={saveDefaults} disabled={!canEdit} className="bg-[#171717] text-white hover:bg-[#2a2a2a]">
-              <Save className="mr-2 h-4 w-4" />
+            <Button type="button" onClick={() => void saveDefaults()} disabled={!canEdit || savingDefaults} className="bg-[#171717] text-white hover:bg-[#2a2a2a]">
+              {savingDefaults ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Save Defaults
+            </Button>
+            <Button type="button" variant="outline" onClick={() => void syncLocalDefaults()} disabled={!canEdit || savingDefaults}>
+              <Upload className="mr-2 h-4 w-4" />
+              Sync Local Defaults to Supabase
             </Button>
           </div>
         </CardContent>

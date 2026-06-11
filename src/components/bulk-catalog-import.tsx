@@ -18,7 +18,6 @@ import {
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import {
-  CATALOG_DEFAULTS_STORAGE_KEY,
   DEFAULT_PICKUP_ADDRESS_CODE,
   DEFAULT_RETURN_EXCHANGE_CONDITION,
   type CatalogDefaults,
@@ -27,6 +26,10 @@ import {
   getCategorySizeChartUrl,
   mergeCatalogDefaults,
 } from '@/lib/catalog';
+import {
+  CATALOG_DEFAULTS_UPDATED_EVENT,
+  loadCatalogDefaults,
+} from '@/lib/catalog-defaults-store';
 import { downloadBlob } from '@/lib/file-actions';
 import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from '@/lib/supabase/client';
 import {
@@ -620,15 +623,6 @@ const createReportCsv = (products: ParsedProduct[]) => {
   return [headers, ...rows].map((row) => row.map(escapeCsvValue).join(',')).join('\r\n');
 };
 
-const readCatalogDefaults = () => {
-  try {
-    const stored = window.localStorage.getItem(CATALOG_DEFAULTS_STORAGE_KEY);
-    return stored ? mergeCatalogDefaults(JSON.parse(stored) as Partial<CatalogDefaults>) : mergeCatalogDefaults(null);
-  } catch {
-    return mergeCatalogDefaults(null);
-  }
-};
-
 const toCatalogCategory = (category: ProductCategory) => {
   if (category === 'Unknown') return null;
   return category;
@@ -702,7 +696,7 @@ const getFinalExportValidation = (products: ParsedProduct[], defaults: CatalogDe
   const productsMissingImage1 = products.filter((product) => !product.imageUrls.image1.trim());
   const imageUploadIssue = productsMissingImage1.length > 0
     ? {
-      message: 'Images are not uploaded yet. Click Upload Images to create public image URLs before downloading the final catalog CSV.',
+      message: 'Image 1 URL missing. Click Upload Images to create public image URLs before downloading the final catalog CSV.',
       productsNeedingUpload: products.filter((product) => product.uploadStatus !== 'Uploaded' || !product.imageUrls.image1.trim()).length,
       missingImage1Count: productsMissingImage1.length,
     }
@@ -727,19 +721,19 @@ const getFinalExportValidation = (products: ParsedProduct[], defaults: CatalogDe
   if (!getReturnExchangeCondition(defaults)) defaultIssues.push('Return/Exchange Condition');
   if (categoryCounts.Shirt > 0 && !defaults.shirtSizeChartUrl.trim()) {
     defaultIssues.push('Shirt Size Chart URL');
-    affectedCounts.push(`Shirts affected: ${categoryCounts.Shirt}`);
+    affectedCounts.push(`Shirts: ${categoryCounts.Shirt} products`);
   }
   if (categoryCounts.Trousers > 0 && !defaults.trouserSizeChartUrl.trim()) {
     defaultIssues.push('Trouser Size Chart URL');
-    affectedCounts.push(`Trousers affected: ${categoryCounts.Trousers}`);
+    affectedCounts.push(`Trousers: ${categoryCounts.Trousers} products`);
   }
   if (categoryCounts.Shoes > 0 && !defaults.shoesHsnCode.trim()) {
     defaultIssues.push('Shoes HSN Code');
-    affectedCounts.push(`Shoes affected: ${categoryCounts.Shoes}`);
+    affectedCounts.push(`Shoes: ${categoryCounts.Shoes} products`);
   }
   if (categoryCounts.Perfume > 0 && !defaults.perfumeHsnCode.trim()) {
     defaultIssues.push('Perfume HSN Code');
-    affectedCounts.push(`Perfume affected: ${categoryCounts.Perfume}`);
+    affectedCounts.push(`Perfume: ${categoryCounts.Perfume} products`);
   }
 
   for (const product of products) {
@@ -901,6 +895,7 @@ export function BulkCatalogImport({ onOpenCatalogDefaults }: BulkCatalogImportPr
     imageLabel: string;
   } | null>(null);
   const [catalogDefaults, setCatalogDefaults] = useState<CatalogDefaults>(() => mergeCatalogDefaults(null));
+  const [defaultsLoadWarning, setDefaultsLoadWarning] = useState('');
   const productsRef = useRef<ParsedProduct[]>([]);
   const { toast } = useToast();
 
@@ -921,13 +916,28 @@ export function BulkCatalogImport({ onOpenCatalogDefaults }: BulkCatalogImportPr
   }, [products]);
 
   useEffect(() => {
-    const refreshDefaults = () => setCatalogDefaults(readCatalogDefaults());
-    refreshDefaults();
-    window.addEventListener('storage', refreshDefaults);
-    window.addEventListener('mitty-catalog-defaults-updated', refreshDefaults);
+    let isMounted = true;
+
+    const refreshDefaults = async () => {
+      const result = await loadCatalogDefaults();
+
+      if (!isMounted) {
+        return;
+      }
+
+      setCatalogDefaults(result.defaults);
+      setDefaultsLoadWarning(result.errorMessage || '');
+    };
+
+    const handleDefaultsRefresh = () => void refreshDefaults();
+
+    void refreshDefaults();
+    window.addEventListener('storage', handleDefaultsRefresh);
+    window.addEventListener(CATALOG_DEFAULTS_UPDATED_EVENT, handleDefaultsRefresh);
     return () => {
-      window.removeEventListener('storage', refreshDefaults);
-      window.removeEventListener('mitty-catalog-defaults-updated', refreshDefaults);
+      isMounted = false;
+      window.removeEventListener('storage', handleDefaultsRefresh);
+      window.removeEventListener(CATALOG_DEFAULTS_UPDATED_EVENT, handleDefaultsRefresh);
     };
   }, []);
 
@@ -943,7 +953,7 @@ export function BulkCatalogImport({ onOpenCatalogDefaults }: BulkCatalogImportPr
     () => getFinalExportValidation(products, catalogDefaults),
     [catalogDefaults, products]
   );
-  const finalCsvDisabled = products.length === 0 || Boolean(finalExportValidation.imageUploadIssue);
+  const finalCsvDisabled = !finalExportValidation.ready;
 
   const clearImport = () => {
     revokeProductImageUrls(products);
@@ -1263,8 +1273,8 @@ export function BulkCatalogImport({ onOpenCatalogDefaults }: BulkCatalogImportPr
                 Clear Import
               </Button>
             </div>
-            {finalExportValidation.imageUploadIssue && (
-              <p className="text-xs font-medium text-amber-700">Upload images first to unlock final CSV.</p>
+            {!finalExportValidation.ready && (
+              <p className="text-xs font-medium text-amber-700">Fix required items above to unlock final CSV.</p>
             )}
           </div>
         </div>
@@ -1290,6 +1300,11 @@ export function BulkCatalogImport({ onOpenCatalogDefaults }: BulkCatalogImportPr
             <span>ZIPs are never sent to the server.</span>
             <span>Final catalog export only downloads when you click it.</span>
           </div>
+          {defaultsLoadWarning && (
+            <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+              Supabase Catalog Defaults could not be loaded, so local cached defaults are being used. {defaultsLoadWarning}
+            </p>
+          )}
           {(isParsing || parsedCount > 0) && (
             <div className="grid gap-2">
               <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
@@ -1332,7 +1347,8 @@ export function BulkCatalogImport({ onOpenCatalogDefaults }: BulkCatalogImportPr
                 <div className="grid gap-3 text-xs leading-5">
                   {finalExportValidation.imageUploadIssue && (
                     <div className="rounded-md border border-amber-300 bg-amber-100/70 p-3">
-                      <p className="font-semibold">{finalExportValidation.imageUploadIssue.message}</p>
+                      <p className="font-semibold">Product-level blockers:</p>
+                      <p>{finalExportValidation.imageUploadIssue.message}</p>
                       <p>Products needing upload: {finalExportValidation.imageUploadIssue.productsNeedingUpload}</p>
                       <p>Required Image 1 URLs missing: {finalExportValidation.imageUploadIssue.missingImage1Count}</p>
                     </div>
@@ -1345,9 +1361,14 @@ export function BulkCatalogImport({ onOpenCatalogDefaults }: BulkCatalogImportPr
                           <li key={issue}>{issue}</li>
                         ))}
                       </ul>
-                      {finalExportValidation.affectedCounts.map((count) => (
-                        <p key={count}>{count}</p>
-                      ))}
+                      {finalExportValidation.affectedCounts.length > 0 && (
+                        <div className="mt-2">
+                          <p className="font-semibold">Affected:</p>
+                          {finalExportValidation.affectedCounts.map((count) => (
+                            <p key={count}>{count}</p>
+                          ))}
+                        </div>
+                      )}
                       {onOpenCatalogDefaults && (
                         <Button type="button" variant="outline" size="sm" onClick={onOpenCatalogDefaults} className="mt-2 h-8">
                           Open Catalog Defaults

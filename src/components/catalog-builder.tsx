@@ -4,7 +4,6 @@ import { Download, Eye, Loader2, Plus, Share2, Trash2, Upload } from 'lucide-rea
 import { useEffect, useMemo, useState } from 'react';
 import type { GenerationResults } from '@/lib/types';
 import {
-  CATALOG_DEFAULTS_STORAGE_KEY,
   CATALOG_STORAGE_KEY,
   type CatalogDefaults,
   type CatalogFormValues,
@@ -19,6 +18,7 @@ import {
   shareCsvOrDownload,
   type SavedCatalogItem,
 } from '@/lib/catalog';
+import { loadCatalogDefaults } from '@/lib/catalog-defaults-store';
 import {
   PRODUCT_IMAGES_BUCKET,
   SIZE_CHARTS_BUCKET,
@@ -80,15 +80,6 @@ const extensionFromFile = (file: File) => {
   return extension || 'png';
 };
 
-const readCatalogDefaults = (): CatalogDefaults => {
-  try {
-    const stored = window.localStorage.getItem(CATALOG_DEFAULTS_STORAGE_KEY);
-    return stored ? mergeCatalogDefaults(JSON.parse(stored) as Partial<CatalogDefaults>) : mergeCatalogDefaults(null);
-  } catch {
-    return mergeCatalogDefaults(null);
-  }
-};
-
 export function CatalogBuilder({ results }: CatalogBuilderProps) {
   const [items, setItems] = useState<SavedCatalogItem[]>([]);
   const [itemsLoaded, setItemsLoaded] = useState(false);
@@ -116,7 +107,7 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
       setItemsLoaded(true);
     }
 
-    setCatalogDefaults(readCatalogDefaults());
+    void loadCatalogDefaults().then((result) => setCatalogDefaults(result.defaults));
   }, []);
 
   useEffect(() => {
@@ -135,7 +126,9 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
   }, [results, catalogDefaults]);
 
   useEffect(() => {
-    const refreshDefaults = () => setCatalogDefaults(readCatalogDefaults());
+    const refreshDefaults = () => {
+      void loadCatalogDefaults().then((result) => setCatalogDefaults(result.defaults));
+    };
     window.addEventListener('storage', refreshDefaults);
     window.addEventListener('mitty-catalog-defaults-updated', refreshDefaults);
     return () => {
@@ -157,29 +150,31 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
-      const latestDefaults = readCatalogDefaults();
-      setCatalogDefaults(latestDefaults);
-      setFormValues((prev) => ({
-        ...createCatalogDefaults(results, latestDefaults),
-        productCode: prev.productCode,
-        amazonAsin: prev.amazonAsin,
-        name: prev.name,
-        skuBase: prev.skuBase,
-        sellingPrice: prev.sellingPrice,
-        mrp: prev.mrp,
-        costPrice: prev.costPrice,
-        packagingLength: prev.packagingLength,
-        packagingBreadth: prev.packagingBreadth,
-        packagingHeight: prev.packagingHeight,
-        packagingWeight: prev.packagingWeight,
-        colour: prev.colour,
-        description: prev.description,
-        customisationId: prev.customisationId,
-        associatedPixel: prev.associatedPixel,
-        video1: prev.video1,
-        video2: prev.video2,
-        sizeRows: prev.sizeRows,
-      }));
+      void loadCatalogDefaults().then((result) => {
+        const latestDefaults = result.defaults;
+        setCatalogDefaults(latestDefaults);
+        setFormValues((prev) => ({
+          ...createCatalogDefaults(results, latestDefaults),
+          productCode: prev.productCode,
+          amazonAsin: prev.amazonAsin,
+          name: prev.name,
+          skuBase: prev.skuBase,
+          sellingPrice: prev.sellingPrice,
+          mrp: prev.mrp,
+          costPrice: prev.costPrice,
+          packagingLength: prev.packagingLength,
+          packagingBreadth: prev.packagingBreadth,
+          packagingHeight: prev.packagingHeight,
+          packagingWeight: prev.packagingWeight,
+          colour: prev.colour,
+          description: prev.description,
+          customisationId: prev.customisationId,
+          associatedPixel: prev.associatedPixel,
+          video1: prev.video1,
+          video2: prev.video2,
+          sizeRows: prev.sizeRows,
+        }));
+      });
     }
 
     if (!nextOpen) {
@@ -320,7 +315,7 @@ export function CatalogBuilder({ results }: CatalogBuilderProps) {
   };
 
   const saveProduct = async () => {
-    const latestDefaults = readCatalogDefaults();
+    const latestDefaults = (await loadCatalogDefaults()).defaults;
     const valuesForSave = applyDefaultFallbacks(formValues, latestDefaults);
     setFormValues(valuesForSave);
     setUploadError(null);
