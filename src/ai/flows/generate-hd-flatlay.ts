@@ -110,7 +110,7 @@ The image must be pin-sharp, high-detail, HD quality with professional studio ae
 ${buildProductAccuracyInstructions(input)}`
         promptMedia = [{media: {url: input.productImage!}}];
     } else {
-        promptText = `Generate an ultra-realistic, high-resolution, professional e-commerce studio packshot photograph of the uploaded shirt product. This MUST look like a premium HD catalog packshot shot in a professional photography studio with DSLR equipment and soft-box lighting — NOT a casual phone photo on a table or bed.
+        promptText = `Generate an ultra-realistic, high-resolution, professional e-commerce studio packshot photograph of the uploaded shirt product. This MUST look like a premium HD catalog packshot shot in a professional photography studio with DSLR equipment and soft-box lighting. NOT a casual phone photo on a table or bed.
 
 ${buildProductOnlyNoPersonInstruction()}
 
@@ -120,7 +120,7 @@ ${buildFlatlayAccuracyInstructions(input)}
 
 Use the uploaded reference images as the construction and design source of truth. Preserve the actual shirt design exactly: pocket, collar, buttons, placket, cuffs, sleeve type, pattern, fabric finish, and all visible construction details. Follow the colour lock for final product colour.
 
-Lighting: use even, diffuse, soft-box studio lighting that eliminates ALL shadows. No harsh shadow, no camera shadow, no phone shadow, no photographer shadow, no hand shadow, no reflection shadow, no dark bottom shadow, no warm color cast, no dramatic spotlight, no uneven vignette. The light must be flat, clean, and professional — mimicking a high-end fashion studio with seamless lighting.
+Lighting: use even, diffuse, soft-box studio lighting that eliminates ALL shadows. No harsh shadow, no camera shadow, no phone shadow, no photographer shadow, no hand shadow, no reflection shadow, no dark bottom shadow, no warm color cast, no dramatic spotlight, no uneven vignette. The light must be flat, clean, and professional, to mimic a high-end fashion studio with seamless lighting.
 
 Background: clean light grey or off-white seamless studio backdrop. No table surface, no floor texture, no room background, no lifestyle setting, no visible edges, no wrinkled fabric backdrop.
 

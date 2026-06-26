@@ -1,1265 +1,440 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { generateHdFlatlay } from '@/ai/flows/generate-hd-flatlay';
-import { generateFrontView } from '@/ai/flows/generate-front-view';
-import { generateSideView } from '@/ai/flows/generate-side-view';
-import { generateBackView } from '@/ai/flows/generate-back-view';
-import { generateTextureView } from '@/ai/flows/generate-texture-view';
-import { generateProductTitleDescription } from '@/ai/flows/generate-product-title-description';
-import { generatePerfumeBottleFront } from '@/ai/flows/generate-perfume-bottle-front';
-import { generatePerfumeBoxFront } from '@/ai/flows/generate-perfume-box-front';
-import { generatePerfumeBoxBack } from '@/ai/flows/generate-perfume-box-back';
-import { generatePerfumeHeroView } from '@/ai/flows/generate-perfume-hero-view';
-
-import { logAiUsage } from '@/app/actions/ai-usage';
-import { AppShell, type AppSection } from '@/components/app-shell';
-import { AuthGate, type AuthContextValue } from '@/components/auth-gate';
-import { BulkCatalogImport } from '@/components/bulk-catalog-import';
-import { CatalogDefaultsSettings } from '@/components/catalog-defaults-settings';
-import { PlaceholderSection } from '@/components/placeholder-section';
-import { ProductForm } from '@/components/product-form';
-import { ProductHistory } from '@/components/product-history';
-import { ResultsDisplay } from '@/components/results-display';
-import { StudioWorkspace } from '@/components/studio-workspace';
-import { UsageLogs } from '@/components/usage-logs';
-import { useToast } from '@/hooks/use-toast';
-import type {
-  GenerationProgressState,
-  GenerationProgressStep,
-  GenerationResults,
-  ProductFormValues,
-  SeoContentPack,
-  AvailableSizeRow,
-} from '@/lib/types';
-import { productFormSchema } from '@/lib/types';
-import { getSafeGenerationErrorMessage } from '@/lib/ai-error-message';
-import { optimizeImage, estimatePayload, type OptimizedImage } from '@/lib/image-compression';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
 import {
-  WORKFLOW_DRAFT_UPDATED_EVENT,
-  getSerializableProductFormDraft,
-  removeWorkflowDraftFile,
-  readWorkflowDraft,
-  type WorkflowDraftFileField,
-  writeWorkflowDraft,
-} from '@/lib/workflow-draft';
-import { incrementProductsGenerated } from '@/lib/workflow-metrics';
-import type { GenerateProductViewInput } from '@/ai/flows/types';
-import { getSupabaseBrowserClient } from '@/lib/supabase/client';
-import {
-  GEMINI_IMAGE_MODEL,
-  GEMINI_TEXT_MODEL,
-  type AiUsageGenerationType,
-  type AiUsageStatus,
-} from '@/lib/ai-usage-costs';
+  ArrowRight,
+  BadgeCheck,
+  Camera,
+  CheckCircle2,
+  ChevronDown,
+  Clock3,
+  Download,
+  FileText,
+  Footprints,
+  Gem,
+  Images,
+  Layers,
+  Menu,
+  PackageCheck,
+  Send,
+  Shirt,
+  ShoppingBag,
+  Sparkles,
+  SprayCan,
+  Store,
+  Tag,
+  TrendingUp,
+  Upload,
+  Watch,
+  X,
+} from 'lucide-react';
 
-type GeneratingState = {
-  all: boolean;
-  frontView: boolean;
-  sideView: boolean;
-  backView: boolean;
-  textureView: boolean;
-  flatlay: boolean;
-  heroView: boolean;
-};
-
-type ProductCategory = ProductFormValues['productCategory'];
-
-type UsageLogInput = {
-  generationType: AiUsageGenerationType;
-  category?: string;
-  productTitle?: string;
-  requestedImages?: number;
-  successfulImages?: number;
-  failedImages?: number;
-  model?: string;
-  status: AiUsageStatus;
-  errorMessage?: string;
-  metadata?: Record<string, string | number | boolean | null>;
-};
-
-type RegenerateUsageSnapshot = {
-  category?: string;
-  productTitle?: string;
-  isManualColor: boolean;
-};
-
-const PLATFORM_ADMIN_EMAILS = new Set(['admin@gpbm.in']);
-
-const defaultProductFormValues: ProductFormValues = {
-  gender: 'Male',
-  productCategory: 'Shirt',
-  fabricType: '',
-  color: '',
-  pattern: '',
-  sleeveType: 'Full Sleeve',
-  fitType: '',
-  materialStretch: 'No',
-  trouserFrontPocketType: 'Auto Detect',
-  trouserBackPocketType: 'Auto Detect',
-  trouserVisibleLogo: 'Auto Detect',
-  trouserFrontStyle: 'Auto Detect',
-  trouserCrease: 'Auto Detect',
-  trouserFit: 'Auto Detect',
-  trouserFabricFinish: 'Auto Detect',
-  trouserTagBrandingVisibility: 'Auto Detect',
-  frontPocket: 'Auto Detect',
-  patternOverride: 'Auto Detect',
-  collarType: 'Auto Detect',
-  visibleLogo: 'Auto Detect',
-  outputBackgroundStyle: 'Clean Light Grey Studio',
-  mrp: '',
-  availableSizes: [],
-  fragranceName: '',
-  fragranceFamily: '',
-  sizeMl: '',
-};
-
-const uploadFields: WorkflowDraftFileField[] = [
-  'productImage',
-  'openShirtImage',
-  'fabricCloseupImage',
-  'collarButtonCloseupImage',
-  'pocketLogoDetailImage',
-  'backSideImage',
-  'productImageFront',
-  'productImageFabric',
-  'productImageBack',
-  'bottleImageFile',
-  'boxFrontImageFile',
-  'boxBackImageFile',
-];
-
-const shirtSpecificFields: Array<keyof ProductFormValues> = [
-  'sleeveType',
-  'frontPocket',
-  'patternOverride',
-  'collarType',
-  'visibleLogo',
-  'outputBackgroundStyle',
-];
-
-const trouserSpecificFields: Array<keyof ProductFormValues> = [
-  'fitType',
-  'materialStretch',
-  'trouserFrontPocketType',
-  'trouserBackPocketType',
-  'trouserVisibleLogo',
-  'trouserFrontStyle',
-  'trouserCrease',
-  'trouserFit',
-  'trouserFabricFinish',
-  'trouserTagBrandingVisibility',
-];
-
-const perfumeSpecificFields: Array<keyof ProductFormValues> = [
-  'fragranceName',
-  'fragranceFamily',
-  'sizeMl',
-];
-
-const imageStepIdsByCategory: Record<ProductCategory, string[]> = {
-  Shirt: ['front', 'side', 'back', 'flatlay'],
-  Jeans: ['front', 'side', 'back', 'flatlay'],
-  Shoes: ['front', 'side', 'back', 'flatlay'],
-  Trousers: ['front', 'back', 'texture', 'flatlay'],
-  Perfume: ['front', 'side', 'back', 'hero'],
-};
-
-const getProgressSteps = (category: ProductCategory): GenerationProgressStep[] => {
-  const genericImageLabels = {
-    front: 'Generating image 1 of 4: front model view',
-    side: 'Generating image 2 of 4: side view',
-    back: 'Generating image 3 of 4: back view',
-    flatlay: 'Generating image 4 of 4: flatlay view',
-  };
-  const categoryImageLabels: Record<ProductCategory, Record<string, string>> = {
-    Shirt: genericImageLabels,
-    Jeans: genericImageLabels,
-    Shoes: genericImageLabels,
-    Trousers: {
-      front: 'Generating image 1 of 4: front trouser view',
-      back: 'Generating image 2 of 4: back trouser view',
-      texture: 'Generating image 3 of 4: fabric texture close-up',
-      flatlay: 'Generating image 4 of 4: flatlay view',
-    },
-    Perfume: {
-      front: 'Generating image 1 of 4: bottle front',
-      side: 'Generating image 2 of 4: box front',
-      back: 'Generating image 3 of 4: box back',
-      hero: 'Generating image 4 of 4: hero image',
-    },
-  };
-
-  return [
-    { id: 'details', label: 'Validating product details', status: 'pending' },
-    { id: 'prepare', label: 'Preparing product inputs', status: 'pending' },
-    { id: 'seo', label: 'Generating title and description', status: 'pending' },
-    { id: 'imageBatch', label: 'Generating product images', status: 'pending' },
-    ...imageStepIdsByCategory[category].map((id) => ({
-      id,
-      label: categoryImageLabels[category][id],
-      status: 'pending' as const,
-    })),
-    { id: 'export', label: 'Preparing results and downloads', status: 'pending' },
-    { id: 'done', label: 'Done', status: 'pending' },
-  ];
-};
-
-const getProgressPercent = (steps: GenerationProgressStep[], status: GenerationProgressState['status']) => {
-  if (status === 'done') {
-    return 100;
-  }
-
-  const completedCount = steps.filter((step) => step.status === 'completed').length;
-  const rawPercent = (completedCount / steps.length) * 100;
-
-  return Math.min(99, Math.max(0, Math.round(rawPercent)));
-};
-
-const createProgressState = (category: ProductCategory): GenerationProgressState => ({
-  status: 'running',
-  percent: 0,
-  imageTotal: imageStepIdsByCategory[category].length,
-  imageCompleted: 0,
-  succeededViews: [],
-  failedViews: [],
-  startedAt: Date.now(),
-  steps: getProgressSteps(category),
-});
-
-const createSeoOnlyResult = (
-  textResult: SeoContentPack,
-  productCategory: ProductCategory,
-  gender: ProductFormValues['gender'],
-  color: string,
-  selectedColor: string,
-  detectedColor: string,
-  effectiveColor: string,
-  isManualColor: boolean,
-  fitType?: string,
-  mrp?: string,
-  availableSizes?: AvailableSizeRow[]
-): GenerationResults => ({
-  ...textResult,
-  productCategory,
-  gender,
-  color,
-  selectedColor,
-  detectedColor,
-  effectiveColor,
-  isManualColor,
-  fitType,
-  mrp,
-  availableSizes,
-});
-
-export default function Home() {
-  return <AuthGate>{(auth) => <AuthenticatedStudio auth={auth} />}</AuthGate>;
-}
-
-function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
-  const [activeSection, setActiveSection] = useState<AppSection>('studio');
-  const [results, setResults] = useState<GenerationResults | null>(null);
-  const [productImageUris, setProductImageUris] = useState<{ [key: string]: string }>({});
-  const [progress, setProgress] = useState<GenerationProgressState>({
-    status: 'idle',
-    percent: 0,
-    steps: [],
-  });
-  const [generating, setGenerating] = useState<GeneratingState>({
-    all: false,
-    frontView: false,
-    sideView: false,
-    backView: false,
-    textureView: false,
-    flatlay: false,
-    heroView: false,
-  });
-  const [draftHydrated, setDraftHydrated] = useState(false);
-  const [draftSavedAt, setDraftSavedAt] = useState<number | undefined>(undefined);
-  const userEditedBeforeDraftHydrationRef = useRef(false);
-  const previousCategoryRef = useRef<ProductCategory>(defaultProductFormValues.productCategory);
-  const progressSectionRef = useRef<HTMLDivElement | null>(null);
-  const resultsSectionRef = useRef<HTMLDivElement | null>(null);
-  const scrolledToProgressRef = useRef(false);
-  const scrolledToResultsRef = useRef(false);
-  const { toast } = useToast();
-  const isPlatformAdmin = PLATFORM_ADMIN_EMAILS.has(auth.email.toLowerCase());
-
-  const form = useForm<ProductFormValues>({
-    resolver: zodResolver(productFormSchema),
-    defaultValues: defaultProductFormValues,
-  });
-
-  const writeUsageLog = async (input: UsageLogInput) => {
-    try {
-      const supabase = getSupabaseBrowserClient();
-      const { data, error } = await supabase.auth.getSession();
-
-      if (error || !data.session?.access_token) {
-        throw new Error(error?.message || 'Missing session for usage logging.');
-      }
-
-      const result = await logAiUsage({
-        accessToken: data.session.access_token,
-        userId: auth.user.id,
-        userEmail: auth.email,
-        ...input,
-      });
-
-      if (!result.ok) {
-        throw new Error(result.error || 'Usage log insert failed.');
-      }
-
-      return true;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown usage logging error.';
-      console.warn('AI usage logging skipped:', {
-        generationType: input.generationType,
-        status: input.status,
-        message,
-      });
-      return false;
-    }
-  };
+function Reveal({ children, className = '', delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (progress.status !== 'running' || scrolledToProgressRef.current) {
-      return;
-    }
+    const el = ref.current;
+    if (!el) return;
 
-    scrolledToProgressRef.current = true;
-    window.setTimeout(() => {
-      progressSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
-  }, [progress.status]);
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          obs.disconnect();
+        }
+      },
+      { threshold: 0.15 }
+    );
 
-  useEffect(() => {
-    if ((progress.status !== 'done' && progress.status !== 'partial') || !results || scrolledToResultsRef.current) {
-      return;
-    }
-
-    scrolledToResultsRef.current = true;
-    window.setTimeout(() => {
-      resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 150);
-  }, [progress.status, results]);
-
-  useEffect(() => {
-    if (draftHydrated) {
-      return;
-    }
-
-    const subscription = form.watch((_values, info) => {
-      if (info.type === 'change') {
-        userEditedBeforeDraftHydrationRef.current = true;
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [draftHydrated, form]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const restoreDraft = async () => {
-      const draft = await readWorkflowDraft();
-
-      if (cancelled) {
-        return;
-      }
-
-      const shouldRestoreDraft = !userEditedBeforeDraftHydrationRef.current;
-
-      if (draft?.formValues && shouldRestoreDraft) {
-        form.reset({
-          ...defaultProductFormValues,
-          ...draft.formValues,
-        });
-      }
-
-      if (draft?.results && shouldRestoreDraft) {
-        setResults(draft.results);
-      }
-
-      if (draft?.productImageUris && shouldRestoreDraft) {
-        setProductImageUris(draft.productImageUris);
-      }
-
-      setDraftSavedAt(draft?.updatedAt);
-      previousCategoryRef.current = form.getValues('productCategory');
-      setDraftHydrated(true);
-    };
-
-    void restoreDraft();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [form]);
-
-  useEffect(() => {
-    const handleDraftUpdated = () => setDraftSavedAt(Date.now());
-
-    window.addEventListener(WORKFLOW_DRAFT_UPDATED_EVENT, handleDraftUpdated);
-    return () => window.removeEventListener(WORKFLOW_DRAFT_UPDATED_EVENT, handleDraftUpdated);
+    obs.observe(el);
+    return () => obs.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (!draftHydrated) {
-      return;
-    }
-
-    const resetFields = (fields: Array<keyof ProductFormValues>) => {
-      for (const field of fields) {
-        form.resetField(field, { defaultValue: defaultProductFormValues[field] });
-      }
-    };
-
-    const clearUploadFields = () => {
-      for (const field of uploadFields) {
-        form.setValue(field, null, { shouldDirty: true, shouldValidate: false });
-        void removeWorkflowDraftFile(field);
-      }
-    };
-
-    const subscription = form.watch((values, info) => {
-      const nextCategory = values.productCategory as ProductCategory | undefined;
-
-      if (info.name !== 'productCategory' || !nextCategory || nextCategory === previousCategoryRef.current) {
-        return;
-      }
-
-      previousCategoryRef.current = nextCategory;
-      clearUploadFields();
-      setProductImageUris({});
-      setResults(null);
-      setProgress({ status: 'idle', percent: 0, steps: [] });
-
-      if (nextCategory !== 'Shirt') {
-        resetFields(shirtSpecificFields);
-      }
-
-      if (nextCategory !== 'Trousers') {
-        resetFields(trouserSpecificFields);
-      }
-
-      if (nextCategory !== 'Perfume') {
-        resetFields(perfumeSpecificFields);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [draftHydrated, form]);
-
-  useEffect(() => {
-    if (!draftHydrated) {
-      return;
-    }
-
-    const subscription = form.watch((values) => {
-      void writeWorkflowDraft({
-        formValues: getSerializableProductFormDraft(values as ProductFormValues),
-      });
-    });
-
-    return () => subscription.unsubscribe();
-  }, [draftHydrated, form]);
-
-  useEffect(() => {
-    if (!draftHydrated) {
-      return;
-    }
-
-    void writeWorkflowDraft({ results });
-  }, [draftHydrated, results]);
-
-  useEffect(() => {
-    if (!draftHydrated) {
-      return;
-    }
-
-    void writeWorkflowDraft({ productImageUris });
-  }, [draftHydrated, productImageUris]);
-
-  const onSubmit = async (data: ProductFormValues) => {
-    scrolledToProgressRef.current = false;
-    scrolledToResultsRef.current = false;
-    setGenerating({ all: true, frontView: false, sideView: false, backView: false, textureView: false, flatlay: false, heroView: false });
-    setProgress(createProgressState(data.productCategory));
-    setProductImageUris({});
-    let lastStepId = 'details';
-    let failedReason: string | undefined;
-    let partialSuccessHandled = false;
-
-    const markStepActive = (stepId: string) => {
-      lastStepId = stepId;
-      setProgress((prev) => {
-        const steps = prev.steps.map((step) =>
-          step.id === stepId && step.status === 'pending' ? { ...step, status: 'active' as const } : step
-        );
-
-        return {
-          ...prev,
-          status: 'running',
-          currentStepId: stepId,
-          steps,
-          percent: getProgressPercent(steps, 'running'),
-        };
-      });
-    };
-
-    const markStepCompleted = (stepId: string) => {
-      setProgress((prev) => {
-        const steps = prev.steps.map((step) =>
-          step.id === stepId ? { ...step, status: 'completed' as const, error: undefined } : step
-        );
-        const isDone = stepId === 'done';
-        const status = isDone ? 'done' : prev.status;
-
-        return {
-          ...prev,
-          status,
-          currentStepId: isDone ? undefined : prev.currentStepId,
-          completedAt: isDone ? Date.now() : prev.completedAt,
-          steps,
-          percent: getProgressPercent(steps, status),
-        };
-      });
-    };
-
-    const updateImageProgress = ({
-      view,
-      status,
-    }: {
-      view: string;
-      status: 'success' | 'failed';
-    }) => {
-      setProgress((prev) => {
-        const succeededViews = status === 'success'
-          ? [...(prev.succeededViews || []), view]
-          : prev.succeededViews || [];
-        const failedViews = status === 'failed'
-          ? [...(prev.failedViews || []), view]
-          : prev.failedViews || [];
-
-        return {
-          ...prev,
-          imageCompleted: succeededViews.length,
-          succeededViews,
-          failedViews,
-          summaryMessage: failedViews.length > 0
-            ? `${succeededViews.length} of ${prev.imageTotal || 0} images completed. ${failedViews.length} failed.`
-            : `${succeededViews.length} of ${prev.imageTotal || 0} images completed.`,
-        };
-      });
-    };
-
-    const markStepFailed = (stepId: string, error: unknown) => {
-      const reason = getSafeGenerationErrorMessage(error);
-      failedReason = reason;
-
-      setProgress((prev) => {
-        const steps = prev.steps.map((step) =>
-          step.id === stepId ? { ...step, status: 'failed' as const, error: reason } : step
-        );
-
-        return {
-          ...prev,
-          status: 'failed',
-          currentStepId: undefined,
-          failedStepId: stepId,
-          failedReason: reason,
-          completedAt: Date.now(),
-          steps,
-          percent: getProgressPercent(steps, 'failed'),
-        };
-      });
-
-      return reason;
-    };
-
-    const markImageStepFailed = (stepId: string, error: unknown) => {
-      const reason = getSafeGenerationErrorMessage(error);
-
-      setProgress((prev) => {
-        const steps = prev.steps.map((step) =>
-          step.id === stepId ? { ...step, status: 'failed' as const, error: reason } : step
-        );
-
-        return {
-          ...prev,
-          steps,
-          summaryMessage: reason,
-          percent: getProgressPercent(steps, prev.status),
-        };
-      });
-
-      return reason;
-    };
-
-    const runImageStep = async <T,>(
-      stepId: string,
-      viewKey: keyof Pick<
-        GenerationResults,
-        'frontView' | 'sideView' | 'backView' | 'textureView' | 'hdFlatlayImage' | 'heroView'
-      >,
-      task: Promise<T>,
-      getImage: (result: T) => string
-    ) => {
-      markStepActive(stepId);
-
-      try {
-        const result = await task;
-        const image = getImage(result);
-
-        setResults((prev) => (prev ? { ...prev, [viewKey]: image } : prev));
-        markStepCompleted(stepId);
-        updateImageProgress({ view: stepId, status: 'success' });
-        return image;
-      } catch (error) {
-        markImageStepFailed(stepId, error);
-        updateImageProgress({ view: stepId, status: 'failed' });
-        throw error;
-      }
-    };
-
-    const runFullProductImageBatch = async ({
-      category,
-      productTitle,
-      isManualColor,
-      items,
-    }: {
-      category: ProductCategory;
-      productTitle?: string;
-      isManualColor: boolean;
-      items: Array<{ view: string; run: () => Promise<string> }>;
-    }) => {
-      markStepActive('imageBatch');
-      const settled = await Promise.allSettled(items.map((item) => item.run()));
-      const successfulImages = settled.filter((result) => result.status === 'fulfilled').length;
-      const failedImages = settled.length - successfulImages;
-      const firstFailure = settled.find((result) => result.status === 'rejected');
-      const status: AiUsageStatus = failedImages === 0
-        ? 'success'
-        : successfulImages > 0
-          ? 'partial_success'
-          : 'failed';
-
-      await writeUsageLog({
-        generationType: 'full_product_images',
-        category,
-        productTitle,
-        requestedImages: items.length,
-        successfulImages,
-        failedImages,
-        model: GEMINI_IMAGE_MODEL,
-        status,
-        errorMessage: firstFailure?.status === 'rejected' ? getSafeGenerationErrorMessage(firstFailure.reason) : undefined,
-        metadata: {
-          views: items.map((item) => item.view).join(','),
-          isManualColor,
-        },
-      });
-
-      if (failedImages === 0) {
-        markStepCompleted('imageBatch');
-      } else if (successfulImages > 0) {
-        partialSuccessHandled = true;
-        setProgress((prev) => ({
-          ...prev,
-          status: 'partial',
-          completedAt: Date.now(),
-          currentStepId: undefined,
-          steps: prev.steps.map((step) =>
-            step.id === 'imageBatch' ? { ...step, status: 'completed' as const } : step
-          ),
-          summaryMessage: `${successfulImages} of ${items.length} images completed. ${failedImages} failed.`,
-          failedReason: 'Some images could not be generated. Successful images are still available below.',
-          percent: getProgressPercent(prev.steps, 'partial'),
-        }));
-      }
-
-      if (firstFailure?.status === 'rejected') {
-        throw firstFailure.reason;
-      }
-    };
-
-    try {
-      const uris: { [key: string]: string } = {};
-      const allOptimized: OptimizedImage[] = [];
-      const selectedColor = data.color?.trim() || '';
-      const isManualColor = selectedColor.length > 0;
-
-      const getUploadedFile = (files: File[] | null | undefined, fieldName: string) => {
-        const file = files?.[0];
-
-        if (!file) {
-          throw new Error(`${fieldName} is required.`);
-        }
-
-        return file;
-      };
-
-      /** Optimize a file and track it for payload estimation. */
-      const optimizeAndTrack = async (file: File): Promise<string> => {
-        const opt = await optimizeImage(file);
-        allOptimized.push(opt);
-        return opt.dataUri;
-      };
-
-      markStepActive('details');
-      markStepCompleted('details');
-      markStepActive('prepare');
-      const baseFlowInput: Partial<GenerateProductViewInput> = {
-        productCategory: data.productCategory,
-        gender: data.gender,
-        fabricType: data.fabricType,
-        color: selectedColor,
-        selectedColor,
-        isManualColor,
-        pattern: data.pattern,
-      };
-
-      if (data.productCategory === 'Shirt') {
-        Object.assign(baseFlowInput, {
-          sleeveType: data.sleeveType,
-          frontPocket: data.frontPocket,
-          patternOverride: data.patternOverride,
-          collarType: data.collarType,
-          visibleLogo: data.visibleLogo,
-          outputBackgroundStyle: data.outputBackgroundStyle,
-        });
-      } else if (data.productCategory === 'Trousers') {
-        Object.assign(baseFlowInput, {
-          fitType: data.fitType,
-          materialStretch: data.materialStretch,
-          trouserFrontPocketType: data.trouserFrontPocketType,
-          trouserBackPocketType: data.trouserBackPocketType,
-          trouserVisibleLogo: data.trouserVisibleLogo,
-          trouserFrontStyle: data.trouserFrontStyle,
-          trouserCrease: data.trouserCrease,
-          trouserFit: data.trouserFit,
-          trouserFabricFinish: data.trouserFabricFinish,
-          trouserTagBrandingVisibility: data.trouserTagBrandingVisibility,
-        });
-      } else if (data.productCategory === 'Perfume') {
-        Object.assign(baseFlowInput, {
-          fragranceName: data.fragranceName,
-          fragranceFamily: data.fragranceFamily,
-          sizeMl: data.sizeMl,
-        });
-      }
-
-      if (data.productCategory === 'Trousers') {
-        const [frontUri, fabricUri, backUri] = await Promise.all([
-          optimizeAndTrack(getUploadedFile(data.productImageFront, 'Front view image')),
-          optimizeAndTrack(getUploadedFile(data.productImageFabric, 'Fabric close-up image')),
-          optimizeAndTrack(getUploadedFile(data.productImageBack, 'Back view image')),
-        ]);
-        uris.front = frontUri;
-        uris.fabric = fabricUri;
-        uris.back = backUri;
-        baseFlowInput.productImageFront = frontUri;
-        baseFlowInput.productImageFabric = fabricUri;
-        baseFlowInput.productImageBack = backUri;
-      } else if (data.productCategory === 'Perfume') {
-        const [bottleUri, boxFrontUri, boxBackUri] = await Promise.all([
-          optimizeAndTrack(getUploadedFile(data.bottleImageFile, 'Perfume bottle image')),
-          optimizeAndTrack(getUploadedFile(data.boxFrontImageFile, 'Perfume box front image')),
-          optimizeAndTrack(getUploadedFile(data.boxBackImageFile, 'Perfume box back image')),
-        ]);
-        uris.bottle = bottleUri;
-        uris.boxFront = boxFrontUri;
-        uris.boxBack = boxBackUri;
-        baseFlowInput.bottleImageUri = bottleUri;
-        baseFlowInput.boxFrontImageUri = boxFrontUri;
-        baseFlowInput.boxBackImageUri = boxBackUri;
-      } else if (data.productCategory === 'Shirt') {
-        const imageUri = await optimizeAndTrack(getUploadedFile(data.productImage, 'Main product photo'));
-        uris.main = imageUri;
-        baseFlowInput.productImage = imageUri;
-        baseFlowInput.mainProductImage = imageUri;
-
-        const optionalReferenceFields = [
-          ['open', 'openShirtImage'],
-          ['fabricCloseup', 'fabricCloseupImage'],
-          ['collarButton', 'collarButtonCloseupImage'],
-          ['pocketLogoDetail', 'pocketLogoDetailImage'],
-          ['shirtBack', 'backSideImage'],
-        ] as const;
-
-        await Promise.all(optionalReferenceFields.map(async ([uriKey, fieldName]) => {
-          const file = data[fieldName]?.[0];
-
-          if (!file) {
-            return;
-          }
-
-          const uri = await optimizeAndTrack(file);
-          uris[uriKey] = uri;
-          baseFlowInput[fieldName] = uri;
-        }));
-      } else {
-        const imageUri = await optimizeAndTrack(getUploadedFile(data.productImage, 'Product image'));
-        uris.main = imageUri;
-        baseFlowInput.productImage = imageUri;
-      }
-
-      // -- Payload guard --
-      const payload = estimatePayload(allOptimized);
-      if (payload.exceedsLimit) {
-        throw new Error(
-          'Images are still too large for web deployment (estimated ' +
-          payload.formatted +
-          '). Please remove optional references or use smaller photos.'
-        );
-      }
-
-      setProductImageUris(uris);
-      markStepCompleted('prepare');
-
-      // First, generate text and detect color
-      markStepActive('seo');
-      let textResult: Awaited<ReturnType<typeof generateProductTitleDescription>>;
-      try {
-        textResult = await generateProductTitleDescription(baseFlowInput as GenerateProductViewInput);
-        await writeUsageLog({
-          generationType: 'title_description',
-          category: data.productCategory,
-          productTitle: textResult.productTitle,
-          requestedImages: 0,
-          successfulImages: 0,
-          failedImages: 0,
-          model: GEMINI_TEXT_MODEL,
-          status: 'success',
-          metadata: {
-            isManualColor,
-          },
-        });
-      } catch (error) {
-        await writeUsageLog({
-          generationType: 'title_description',
-          category: data.productCategory,
-          requestedImages: 0,
-          successfulImages: 0,
-          failedImages: 0,
-          model: GEMINI_TEXT_MODEL,
-          status: 'failed',
-          errorMessage: getSafeGenerationErrorMessage(error),
-          metadata: {
-            isManualColor,
-          },
-        });
-        throw error;
-      }
-      markStepCompleted('seo');
-      const detectedColor = textResult.detectedColor;
-      const effectiveColor = isManualColor ? selectedColor : detectedColor;
-
-      setResults(
-        createSeoOnlyResult(
-          textResult,
-          data.productCategory,
-          data.gender,
-          effectiveColor,
-          selectedColor,
-          detectedColor,
-          effectiveColor,
-          isManualColor,
-          data.fitType,
-          data.mrp?.trim(),
-          data.availableSizes
-        )
-      );
-
-      // Now prepare the input for image generation using the final effective color.
-      const imageFlowInput: GenerateProductViewInput = {
-        ...baseFlowInput,
-        color: effectiveColor,
-        selectedColor,
-        detectedColor,
-        effectiveColor,
-        isManualColor,
-      } as GenerateProductViewInput;
-
-
-      if (data.productCategory === 'Trousers') {
-        setGenerating((prev) => ({ ...prev, frontView: true, backView: true, textureView: true, flatlay: true }));
-        await runFullProductImageBatch({
-          category: data.productCategory,
-          productTitle: textResult.productTitle,
-          isManualColor,
-          items: [
-            { view: 'front', run: () => runImageStep('front', 'frontView', generateFrontView(imageFlowInput), (result) => result.frontView) },
-            { view: 'back', run: () => runImageStep('back', 'backView', generateBackView(imageFlowInput), (result) => result.backView) },
-            { view: 'texture', run: () => runImageStep('texture', 'textureView', generateTextureView(imageFlowInput), (result) => result.textureView) },
-            { view: 'flatlay', run: () => runImageStep('flatlay', 'hdFlatlayImage', generateHdFlatlay(imageFlowInput), (result) => result.hdFlatlayImage) },
-          ],
-        });
-
-      } else if (data.productCategory === 'Perfume') {
-        setGenerating((prev) => ({ ...prev, frontView: true, sideView: true, backView: true, heroView: true }));
-        await runFullProductImageBatch({
-          category: data.productCategory,
-          productTitle: textResult.productTitle,
-          isManualColor,
-          items: [
-            { view: 'front', run: () => runImageStep('front', 'frontView', generatePerfumeBottleFront(imageFlowInput), (result) => result.perfumeBottleFront) },
-            { view: 'side', run: () => runImageStep('side', 'sideView', generatePerfumeBoxFront(imageFlowInput), (result) => result.perfumeBoxFront) },
-            { view: 'back', run: () => runImageStep('back', 'backView', generatePerfumeBoxBack(imageFlowInput), (result) => result.perfumeBoxBack) },
-            { view: 'hero', run: () => runImageStep('hero', 'heroView', generatePerfumeHeroView(imageFlowInput), (result) => result.perfumeHeroView) },
-          ],
-        });
-      } else {
-        setGenerating((prev) => ({ ...prev, frontView: true, sideView: true, backView: true, flatlay: true }));
-        await runFullProductImageBatch({
-          category: data.productCategory,
-          productTitle: textResult.productTitle,
-          isManualColor,
-          items: [
-            { view: 'front', run: () => runImageStep('front', 'frontView', generateFrontView(imageFlowInput), (result) => result.frontView) },
-            { view: 'side', run: () => runImageStep('side', 'sideView', generateSideView(imageFlowInput), (result) => result.sideView) },
-            { view: 'back', run: () => runImageStep('back', 'backView', generateBackView(imageFlowInput), (result) => result.backView) },
-            { view: 'flatlay', run: () => runImageStep('flatlay', 'hdFlatlayImage', generateHdFlatlay(imageFlowInput), (result) => result.hdFlatlayImage) },
-          ],
-        });
-      }
-
-      markStepActive('export');
-      markStepCompleted('export');
-      markStepActive('done');
-      markStepCompleted('done');
-      incrementProductsGenerated();
-    } catch (e) {
-      console.error(e);
-      if (partialSuccessHandled) {
-        toast({
-          variant: 'destructive',
-          title: 'Partial Generation Complete',
-          description: 'Some images could not be generated. Successful images are still available below.',
-        });
-        return;
-      }
-
-      const safeReason = failedReason || markStepFailed(lastStepId, e);
-      toast({
-        variant: 'destructive',
-        title: 'Generation Failed',
-        description: safeReason,
-      });
-    } finally {
-      setGenerating({ all: false, frontView: false, sideView: false, backView: false, textureView: false, flatlay: false, heroView: false });
-    }
-  };
-
-  const getFlowInputForRegen = (): GenerateProductViewInput => {
-    const data = form.getValues();
-    const selectedColor = results?.selectedColor ?? data.color?.trim() ?? '';
-    const isManualColor = results?.isManualColor ?? selectedColor.length > 0;
-    const detectedColor = results?.detectedColor;
-    const effectiveColor = results?.effectiveColor || results?.color || (isManualColor ? selectedColor : detectedColor) || data.color;
-    const flowInput: GenerateProductViewInput = {
-      productCategory: data.productCategory,
-      gender: data.gender,
-      fabricType: data.fabricType,
-      pattern: data.pattern,
-      color: effectiveColor,
-      selectedColor,
-      detectedColor,
-      effectiveColor,
-      isManualColor,
-    };
-
-    if (data.productCategory === 'Shirt') {
-      Object.assign(flowInput, {
-        sleeveType: data.sleeveType,
-        frontPocket: data.frontPocket,
-        patternOverride: data.patternOverride,
-        collarType: data.collarType,
-        visibleLogo: data.visibleLogo,
-        outputBackgroundStyle: data.outputBackgroundStyle,
-        productImage: productImageUris.main,
-        mainProductImage: productImageUris.main,
-        openShirtImage: productImageUris.open,
-        fabricCloseupImage: productImageUris.fabricCloseup,
-        collarButtonCloseupImage: productImageUris.collarButton,
-        pocketLogoDetailImage: productImageUris.pocketLogoDetail,
-        backSideImage: productImageUris.shirtBack,
-      });
-    } else if (data.productCategory === 'Trousers') {
-      Object.assign(flowInput, {
-        fitType: data.fitType,
-        materialStretch: data.materialStretch,
-        trouserFrontPocketType: data.trouserFrontPocketType,
-        trouserBackPocketType: data.trouserBackPocketType,
-        trouserVisibleLogo: data.trouserVisibleLogo,
-        trouserFrontStyle: data.trouserFrontStyle,
-        trouserCrease: data.trouserCrease,
-        trouserFit: data.trouserFit,
-        trouserFabricFinish: data.trouserFabricFinish,
-        trouserTagBrandingVisibility: data.trouserTagBrandingVisibility,
-        productImageFront: productImageUris.front,
-        productImageFabric: productImageUris.fabric,
-        productImageBack: productImageUris.back,
-      });
-    } else if (data.productCategory === 'Perfume') {
-      Object.assign(flowInput, {
-        fragranceFamily: data.fragranceFamily,
-        fragranceName: data.fragranceName,
-        sizeMl: data.sizeMl,
-        bottleImageUri: productImageUris.bottle,
-        boxFrontImageUri: productImageUris.boxFront,
-        boxBackImageUri: productImageUris.boxBack,
-      });
-    } else {
-      Object.assign(flowInput, {
-        productImage: productImageUris.main,
-      });
-    }
-
-    return flowInput;
-  }
-
-  const getRegenerateUsageSnapshot = (): RegenerateUsageSnapshot => {
-    const formValues = form.getValues();
-
-    return {
-      category: results?.productCategory || formValues.productCategory,
-      productTitle: results?.productTitle,
-      isManualColor: Boolean(results?.isManualColor),
-    };
-  };
-
-  const logRegenerateUsage = async ({
-    view,
-    status,
-    snapshot,
-    error,
-  }: {
-    view: string;
-    status: AiUsageStatus;
-    snapshot: RegenerateUsageSnapshot;
-    error?: unknown;
-  }) => {
-    await writeUsageLog({
-      generationType: 'regenerate_image',
-      category: snapshot.category,
-      productTitle: snapshot.productTitle,
-      requestedImages: 1,
-      successfulImages: status === 'success' ? 1 : 0,
-      failedImages: status === 'success' ? 0 : 1,
-      model: GEMINI_IMAGE_MODEL,
-      status,
-      errorMessage: error ? getSafeGenerationErrorMessage(error) : undefined,
-      metadata: {
-        view,
-        isManualColor: snapshot.isManualColor,
-      },
-    });
-  };
-
-  const handleRegenerateFrontView = async () => {
-    if (Object.keys(productImageUris).length === 0) return;
-    const usageSnapshot = getRegenerateUsageSnapshot();
-    setGenerating((prev) => ({ ...prev, frontView: true }));
-    try {
-      const flowInput = getFlowInputForRegen();
-      const newResult = flowInput.productCategory === 'Perfume'
-        ? { frontView: (await generatePerfumeBottleFront(flowInput)).perfumeBottleFront }
-        : { frontView: (await generateFrontView(flowInput)).frontView };
-
-      setResults((prev) => (prev ? { ...prev, ...newResult } : null));
-      await logRegenerateUsage({ view: 'front', status: 'success', snapshot: usageSnapshot });
-      toast({ title: "Front View Regenerated", description: "The front view image has been updated." });
-    } catch (e) {
-      console.error(e);
-      await logRegenerateUsage({ view: 'front', status: 'failed', snapshot: usageSnapshot, error: e });
-      toast({ variant: 'destructive', title: 'Regeneration Failed', description: getSafeGenerationErrorMessage(e) });
-    } finally {
-      setGenerating((prev) => ({ ...prev, frontView: false }));
-    }
-  };
-
-  const handleRegenerateSideView = async () => {
-    if (Object.keys(productImageUris).length === 0) return;
-    const usageSnapshot = getRegenerateUsageSnapshot();
-    setGenerating((prev) => ({ ...prev, sideView: true }));
-    try {
-      const flowInput = getFlowInputForRegen();
-      const newResult = flowInput.productCategory === 'Perfume'
-        ? { sideView: (await generatePerfumeBoxFront(flowInput)).perfumeBoxFront }
-        : { sideView: (await generateSideView(flowInput)).sideView };
-
-      setResults((prev) => (prev ? { ...prev, ...newResult } : null));
-      await logRegenerateUsage({ view: 'side', status: 'success', snapshot: usageSnapshot });
-      toast({ title: "Side View Regenerated", description: "The image has been updated." });
-    } catch (e) {
-      console.error(e);
-      await logRegenerateUsage({ view: 'side', status: 'failed', snapshot: usageSnapshot, error: e });
-      toast({ variant: 'destructive', title: 'Regeneration Failed', description: getSafeGenerationErrorMessage(e) });
-    } finally {
-      setGenerating((prev) => ({ ...prev, sideView: false }));
-    }
-  };
-
-  const handleRegenerateBackView = async () => {
-    if (Object.keys(productImageUris).length === 0) return;
-    const usageSnapshot = getRegenerateUsageSnapshot();
-    setGenerating((prev) => ({ ...prev, backView: true }));
-    try {
-      const flowInput = getFlowInputForRegen();
-      const newResult = flowInput.productCategory === 'Perfume'
-        ? { backView: (await generatePerfumeBoxBack(flowInput)).perfumeBoxBack }
-        : { backView: (await generateBackView(flowInput)).backView };
-
-      setResults((prev) => (prev ? { ...prev, ...newResult } : null));
-      await logRegenerateUsage({ view: 'back', status: 'success', snapshot: usageSnapshot });
-      toast({ title: "Back View Regenerated", description: "The back view image has been updated." });
-    } catch (e) {
-      console.error(e);
-      await logRegenerateUsage({ view: 'back', status: 'failed', snapshot: usageSnapshot, error: e });
-      toast({ variant: 'destructive', title: 'Regeneration Failed', description: getSafeGenerationErrorMessage(e) });
-    } finally {
-      setGenerating((prev) => ({ ...prev, backView: false }));
-    }
-  };
-
-  const handleRegenerateTextureView = async () => { // Only for trousers
-    if (!productImageUris.fabric) return;
-    const usageSnapshot = getRegenerateUsageSnapshot();
-    setGenerating((prev) => ({ ...prev, textureView: true }));
-    try {
-      const result = await generateTextureView(getFlowInputForRegen());
-      setResults((prev) => (prev ? { ...prev, ...result } : null));
-      await logRegenerateUsage({ view: 'texture', status: 'success', snapshot: usageSnapshot });
-      toast({ title: "Texture View Regenerated", description: "The texture image has been updated." });
-    } catch (e) {
-      console.error(e);
-      await logRegenerateUsage({ view: 'texture', status: 'failed', snapshot: usageSnapshot, error: e });
-      toast({ variant: 'destructive', title: 'Regeneration Failed', description: getSafeGenerationErrorMessage(e) });
-    } finally {
-      setGenerating((prev) => ({ ...prev, textureView: false }));
-    }
-  };
-
-  const handleRegenerateHeroView = async () => { // Only for perfume
-    if (Object.keys(productImageUris).length === 0) return;
-    const usageSnapshot = getRegenerateUsageSnapshot();
-    setGenerating((prev) => ({ ...prev, heroView: true }));
-    try {
-      const result = await generatePerfumeHeroView(getFlowInputForRegen());
-      setResults((prev) => (prev ? { ...prev, heroView: result.perfumeHeroView } : null));
-      await logRegenerateUsage({ view: 'hero', status: 'success', snapshot: usageSnapshot });
-      toast({ title: "Hero View Regenerated", description: "The image has been updated." });
-    } catch (e) {
-      console.error(e);
-      await logRegenerateUsage({ view: 'hero', status: 'failed', snapshot: usageSnapshot, error: e });
-      toast({
-        variant: 'destructive',
-        title: 'Regeneration Failed',
-        description: getSafeGenerationErrorMessage(e),
-      });
-    } finally {
-      setGenerating((prev) => ({ ...prev, heroView: false }));
-    }
-  };
-
-
-  const handleRegenerateFlatlay = async () => {
-    if (Object.keys(productImageUris).length === 0) return;
-    const usageSnapshot = getRegenerateUsageSnapshot();
-    setGenerating((prev) => ({ ...prev, flatlay: true }));
-    try {
-      const flatlay = await generateHdFlatlay(getFlowInputForRegen());
-      setResults((prev) => prev ? { ...prev, hdFlatlayImage: flatlay.hdFlatlayImage } : null);
-      await logRegenerateUsage({ view: 'flatlay', status: 'success', snapshot: usageSnapshot });
-      toast({ title: "HD Flat Lay / Top View Regenerated", description: "The image has been updated." });
-    } catch (e) {
-      console.error(e);
-      await logRegenerateUsage({ view: 'flatlay', status: 'failed', snapshot: usageSnapshot, error: e });
-      toast({
-        variant: 'destructive',
-        title: 'Regeneration Failed',
-        description: getSafeGenerationErrorMessage(e),
-      });
-    } finally {
-      setGenerating((prev) => ({ ...prev, flatlay: false }));
-    }
-  };
-
-  const studioContent = (
-    <StudioWorkspace
-      draftReady={draftHydrated}
-      draftSavedAt={draftSavedAt}
-      formPanel={<ProductForm form={form} onSubmit={onSubmit} isLoading={generating.all} />}
-      resultsPanel={
-        <div ref={progressSectionRef}>
-          <div ref={resultsSectionRef}>
-            <ResultsDisplay
-              results={results}
-              loadingState={generating}
-              onRegenerateFrontView={handleRegenerateFrontView}
-              onRegenerateSideView={handleRegenerateSideView}
-              onRegenerateBackView={handleRegenerateBackView}
-              onRegenerateTextureView={handleRegenerateTextureView}
-              onRegenerateFlatlay={handleRegenerateFlatlay}
-              onRegenerateHeroView={handleRegenerateHeroView}
-              progress={progress}
-              onRetryGeneration={() => {
-                void form.handleSubmit(onSubmit)();
-              }}
-            />
-          </div>
-        </div>
-      }
-    />
+  return (
+    <div
+      ref={ref}
+      className={`transition-all duration-700 ease-out ${visible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'} ${className}`}
+      style={{ transitionDelay: `${delay}ms` }}
+    >
+      {children}
+    </div>
   );
+}
 
-  const renderSection = () => {
-    let sectionContent: ReactNode = null;
+function Section({ id, children, className = '', dark = false }: { id?: string; children: ReactNode; className?: string; dark?: boolean }) {
+  return (
+    <section id={id} className={`px-5 py-20 sm:px-8 md:py-28 ${dark ? 'bg-[#0b0b0b] text-white' : 'bg-white text-[#0a0a0a]'} ${className}`}>
+      <div className="mx-auto max-w-6xl">{children}</div>
+    </section>
+  );
+}
 
-    if (activeSection === 'studio') {
-      sectionContent = studioContent;
-    } else if (activeSection === 'products') {
-      sectionContent = <ProductHistory />;
-    } else if (activeSection === 'usage') {
-      sectionContent = isPlatformAdmin ? <UsageLogs /> : <PlaceholderSection section="usage" />;
-    } else if (activeSection === 'staff' && auth.role !== 'owner') {
-      sectionContent = <PlaceholderSection section="settings" />;
-    } else if (activeSection !== 'bulkImport' && activeSection !== 'settings') {
-      sectionContent = <PlaceholderSection section={activeSection} />;
-    }
+function SectionBadge({ children, dark = false }: { children: ReactNode; dark?: boolean }) {
+  return (
+    <span className={`mb-5 inline-flex rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] ${dark ? 'border-white/15 text-neutral-400' : 'border-neutral-300 text-neutral-500'}`}>
+      {children}
+    </span>
+  );
+}
 
-    return (
-      <>
-        <div className={activeSection === 'bulkImport' ? 'block' : 'hidden'}>
-          <BulkCatalogImport onOpenCatalogDefaults={() => setActiveSection('settings')} />
-        </div>
-        <div className={activeSection === 'settings' ? 'block' : 'hidden'}>
-          <CatalogDefaultsSettings role={auth.role} />
-        </div>
-        {sectionContent}
-      </>
-    );
-  };
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
 
   return (
-    <AppShell
-      activeSection={activeSection}
-      onSectionChange={setActiveSection}
-      userEmail={auth.email}
-      userRole={auth.role}
-      isPlatformAdmin={isPlatformAdmin}
-      onLogout={() => {
-        void auth.logout();
-      }}
-    >
-      {renderSection()}
-    </AppShell>
+    <div className="border-b border-neutral-200">
+      <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center justify-between py-5 text-left text-base font-semibold text-[#0a0a0a] sm:text-lg">
+        {q}
+        <ChevronDown className={`ml-4 h-5 w-5 shrink-0 text-neutral-400 transition-transform duration-300 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      <div className={`overflow-hidden transition-all duration-300 ${open ? 'max-h-44 pb-5' : 'max-h-0'}`}>
+        <p className="text-sm leading-relaxed text-neutral-600 sm:text-base">{a}</p>
+      </div>
+    </div>
+  );
+}
+
+function OutputPreview() {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl shadow-neutral-900/10">
+      <div className="relative aspect-[4/3] w-full bg-neutral-100">
+        <Image
+          src="/mitty-homepage-hero.png"
+          alt="MITTY Studio product catalog workflow preview"
+          fill
+          sizes="(min-width: 1024px) 520px, 100vw"
+          className="object-cover"
+          priority
+        />
+      </div>
+      <div className="grid gap-3 border-t border-neutral-200 p-4 sm:grid-cols-3">
+        {[
+          { icon: Camera, label: 'Product views' },
+          { icon: FileText, label: 'SEO copy' },
+          { icon: Download, label: 'Catalog export' },
+        ].map((item) => (
+          <div key={item.label} className="flex items-center gap-2 rounded-lg bg-neutral-50 px-3 py-2">
+            <item.icon className="h-4 w-4 text-neutral-500" />
+            <span className="text-xs font-semibold text-neutral-700">{item.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function HomePage() {
+  const [mobileNav, setMobileNav] = useState(false);
+
+  const navLinks = [
+    { label: 'Results', href: '#results' },
+    { label: 'Who It Helps', href: '#buyers' },
+    { label: 'Workflow', href: '#how-it-works' },
+    { label: 'Categories', href: '#categories' },
+    { label: 'FAQ', href: '#faq' },
+  ];
+
+  const proofStats = [
+    { value: '1 upload', label: 'to start a product listing' },
+    { value: '4 views', label: 'front, side, back, and flatlay' },
+    { value: 'CSV ready', label: 'content for catalog teams' },
+  ];
+
+  const buyerSegments = [
+    { icon: Store, title: 'Boutiques', desc: 'Turn daily store arrivals into online listings without waiting for a full shoot.' },
+    { icon: Shirt, title: 'Fashion brands', desc: 'Create consistent images, product titles, and descriptions for every launch.' },
+    { icon: Gem, title: 'Jewellery stores', desc: 'Prepare clean product assets for rings, earrings, necklaces, and bridal collections.' },
+    { icon: Watch, title: 'Watch sellers', desc: 'Build polished catalog pages for lifestyle watch shots and product listings.' },
+    { icon: PackageCheck, title: 'D2C brands', desc: 'Move from product photo to launch content with fewer handoffs.' },
+    { icon: Tag, title: 'Marketplace sellers', desc: 'Generate listing-ready content for repeated uploads and bulk catalog work.' },
+  ];
+
+  const benefits = [
+    { icon: Clock3, title: 'Launch products faster', desc: 'Reduce the time between receiving stock and publishing it online.' },
+    { icon: TrendingUp, title: 'Improve listing quality', desc: 'Give buyers cleaner visuals, clearer descriptions, and complete fields.' },
+    { icon: BadgeCheck, title: 'Keep output consistent', desc: 'Use one workflow for images, SEO copy, attributes, and export files.' },
+  ];
+
+  const categoryGroups = [
+    { icon: Shirt, name: 'Menswear', items: 'Shirts, trousers, jeans, suits, ethnic wear, footwear, perfumes' },
+    { icon: Sparkles, name: 'Womenswear', items: 'Tops, gowns, dresses, kurtis, co-ords, western wear' },
+    { icon: Layers, name: 'Ethnic Wear', items: 'Kurta sets, sherwani, Indo-western, lehenga, gowns, festive wear' },
+    { icon: Gem, name: 'Jewellery', items: 'Rings, earrings, necklaces, bangles, bracelets, bridal jewellery' },
+    { icon: Watch, name: 'Watches', items: "Men's watches, women's watches, lifestyle watch shots, product catalog shots" },
+    { icon: Footprints, name: 'Footwear', items: "Men's shoes, women's footwear, sandals, sneakers, formal shoes" },
+    { icon: SprayCan, name: 'Perfume & Beauty', items: 'Perfume bottles, boxes, hero shots, product descriptions' },
+    { icon: ShoppingBag, name: 'Bags & Accessories', items: 'Handbags, wallets, belts, sunglasses, fashion accessories' },
+    { icon: Store, name: 'Boutique Retail', items: 'Mixed fashion catalogs, store collections, online product listings' },
+  ];
+
+  const sampleOutputs = [
+    { title: 'Generated product views', desc: 'Front, side, back, flatlay, and product-focused catalog images.', icon: Images },
+    { title: 'SEO title and description', desc: 'Readable, keyword-aware copy built for product pages and marketplaces.', icon: FileText },
+    { title: 'Catalog fields', desc: 'Category, fabric, fit, pattern, size, and product attributes in one place.', icon: Layers },
+    { title: 'Export files', desc: 'Downloadable content that helps teams upload products faster.', icon: Download },
+  ];
+
+  return (
+    <div className="min-h-screen bg-white font-body text-[#0a0a0a] antialiased">
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-neutral-100 bg-white/90 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
+          <Link href="/" className="flex items-center gap-2.5">
+            <Image src="/mitty-studio-logo.png" alt="MITTY Studio" width={36} height={36} className="h-9 w-9 rounded-sm object-contain" priority />
+            <span className="text-base font-bold tracking-tight">MITTY Studio</span>
+          </Link>
+
+          <nav className="hidden items-center gap-7 md:flex">
+            {navLinks.map((link) => (
+              <a key={link.href} href={link.href} className="text-sm font-medium text-neutral-500 transition-colors hover:text-[#0a0a0a]">
+                {link.label}
+              </a>
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-3">
+            <Link href="/studio" className="hidden rounded-lg bg-[#0a0a0a] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1a1a1a] md:inline-flex">
+              Request Demo
+            </Link>
+            <button type="button" onClick={() => setMobileNav(!mobileNav)} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-neutral-100 md:hidden" aria-label="Menu">
+              {mobileNav ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
+        </div>
+
+        {mobileNav && (
+          <div className="border-t border-neutral-100 bg-white px-5 pb-5 pt-3 md:hidden">
+            {navLinks.map((link) => (
+              <a key={link.href} href={link.href} onClick={() => setMobileNav(false)} className="block py-2.5 text-sm font-medium text-neutral-600 hover:text-[#0a0a0a]">
+                {link.label}
+              </a>
+            ))}
+            <Link href="/studio" onClick={() => setMobileNav(false)} className="mt-3 block w-full rounded-lg bg-[#0a0a0a] py-3 text-center text-sm font-semibold text-white">
+              Request Demo
+            </Link>
+          </div>
+        )}
+      </header>
+
+      <div className="h-16" />
+
+      <Section className="!pb-16 !pt-14 sm:!pb-20 sm:!pt-20 md:!pt-24">
+        <div className="grid items-center gap-12 lg:grid-cols-[1.02fr_0.98fr] lg:gap-16">
+          <Reveal>
+            <SectionBadge>Product content studio</SectionBadge>
+            <h1 className="max-w-3xl text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
+              Create marketplace-ready product photos and catalog content in minutes.
+            </h1>
+            <p className="mt-6 max-w-xl text-lg leading-relaxed text-neutral-600">
+              Upload product photos and get clean product views, SEO titles, descriptions, attributes, and catalog exports from one focused workflow.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-4">
+              <Link href="/studio" className="inline-flex items-center gap-2 rounded-lg bg-[#0a0a0a] px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#1a1a1a]">
+                Request Demo Access <ArrowRight className="h-4 w-4" />
+              </Link>
+              <a href="#results" className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 px-6 py-3.5 text-sm font-semibold text-[#0a0a0a] transition-colors hover:border-neutral-400 hover:bg-neutral-50">
+                See Sample Output
+              </a>
+            </div>
+            <div className="mt-8 grid max-w-xl gap-3 sm:grid-cols-3">
+              {proofStats.map((stat) => (
+                <div key={stat.value} className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+                  <p className="text-lg font-extrabold tracking-tight">{stat.value}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-neutral-500">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+          </Reveal>
+
+          <Reveal delay={180}>
+            <OutputPreview />
+          </Reveal>
+        </div>
+      </Section>
+
+      <Section id="results" dark className="!py-20">
+        <Reveal>
+          <SectionBadge dark>Before to listing</SectionBadge>
+          <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Show visitors the result before they ask for a demo.</h2>
+              <p className="mt-4 max-w-xl text-neutral-400">
+                MITTY Studio is built to convert a basic product photo into the pieces a selling page needs.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-4">
+              {sampleOutputs.map((item, i) => (
+                <Reveal key={item.title} delay={i * 80}>
+                  <div className="min-h-44 rounded-xl border border-white/10 bg-white/[0.04] p-5">
+                    <item.icon className="h-6 w-6 text-neutral-400" />
+                    <h3 className="mt-4 text-sm font-semibold text-white">{item.title}</h3>
+                    <p className="mt-2 text-xs leading-relaxed text-neutral-400">{item.desc}</p>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </Reveal>
+      </Section>
+
+      <Section id="buyers">
+        <Reveal>
+          <SectionBadge>Who it helps</SectionBadge>
+          <h2 className="max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">Made for retail teams that need products online faster.</h2>
+          <p className="mt-4 max-w-2xl text-neutral-600">
+            The homepage should speak to the buyer. These are the businesses most likely to understand the value quickly.
+          </p>
+        </Reveal>
+        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {buyerSegments.map((segment, i) => (
+            <Reveal key={segment.title} delay={i * 70}>
+              <div className="group min-h-48 rounded-xl border border-neutral-200 bg-white p-6 transition-all duration-300 hover:border-neutral-400 hover:shadow-lg">
+                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#0a0a0a] text-white transition-transform duration-300 group-hover:scale-105">
+                  <segment.icon className="h-5 w-5" />
+                </div>
+                <h3 className="mt-5 text-lg font-bold tracking-tight">{segment.title}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-neutral-600">{segment.desc}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </Section>
+
+      <Section dark className="!py-20">
+        <Reveal>
+          <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
+            <div>
+              <SectionBadge dark>Why it sells</SectionBadge>
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Less manual work. More products ready to publish.</h2>
+              <p className="mt-4 text-neutral-400">
+                Buyers do not pay for features. They pay because the work becomes faster, cleaner, and easier to repeat.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {benefits.map((benefit, i) => (
+                <Reveal key={benefit.title} delay={i * 80}>
+                  <div className="min-h-52 rounded-xl border border-white/10 bg-white/[0.04] p-6">
+                    <benefit.icon className="h-7 w-7 text-white" />
+                    <h3 className="mt-5 text-base font-semibold text-white">{benefit.title}</h3>
+                    <p className="mt-3 text-sm leading-relaxed text-neutral-400">{benefit.desc}</p>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </Reveal>
+      </Section>
+
+      <Section id="how-it-works">
+        <Reveal>
+          <SectionBadge>Workflow</SectionBadge>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">From upload to catalog in one guided flow.</h2>
+        </Reveal>
+        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
+          {[
+            { step: '01', icon: Upload, title: 'Upload photos', desc: 'Start with product photos from a phone, camera, or team folder.' },
+            { step: '02', icon: Tag, title: 'Add details', desc: 'Choose category and enter the product details your listing needs.' },
+            { step: '03', icon: Camera, title: 'Generate views', desc: 'Create product views that feel cleaner and more catalog-ready.' },
+            { step: '04', icon: FileText, title: 'Create copy', desc: 'Get title, description, and structured product attributes.' },
+            { step: '05', icon: Download, title: 'Export', desc: 'Download assets and catalog content for upload workflows.' },
+          ].map((item, i) => (
+            <Reveal key={item.step} delay={i * 70}>
+              <div className="group min-h-56 rounded-xl border border-neutral-200 p-6 transition-all duration-300 hover:border-neutral-400 hover:shadow-lg">
+                <span className="text-xs font-bold text-neutral-300">{item.step}</span>
+                <item.icon className="mt-4 h-6 w-6 text-[#0a0a0a] transition-transform duration-300 group-hover:scale-110" />
+                <h3 className="mt-4 text-sm font-bold">{item.title}</h3>
+                <p className="mt-2 text-xs leading-relaxed text-neutral-500">{item.desc}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </Section>
+
+      <Section id="categories" className="border-y border-neutral-100 bg-neutral-50">
+        <Reveal>
+          <SectionBadge>Categories</SectionBadge>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Built for modern retail categories.</h2>
+          <p className="mt-4 max-w-2xl text-neutral-600">
+            Support focused workflows for fashion, jewellery, watches, beauty, accessories, D2C brands, and marketplace sellers.
+          </p>
+        </Reveal>
+        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {categoryGroups.map((cat, i) => (
+            <Reveal key={cat.name} delay={i * 60}>
+              <div className="group flex min-h-44 flex-col rounded-xl border border-neutral-200 bg-white p-6 transition-all duration-300 hover:border-neutral-400 hover:shadow-lg">
+                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#0a0a0a] text-white transition-transform duration-300 group-hover:scale-105">
+                  <cat.icon className="h-5 w-5" />
+                </div>
+                <h3 className="mt-5 text-lg font-bold tracking-tight">{cat.name}</h3>
+                <p className="mt-3 text-sm leading-relaxed text-neutral-600">{cat.items}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </Section>
+
+      <Section dark>
+        <Reveal>
+          <div className="grid gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+            <div>
+              <SectionBadge dark>Private demo access</SectionBadge>
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">See how MITTY Studio fits your product workflow.</h2>
+              <p className="mt-5 max-w-xl text-lg leading-relaxed text-neutral-400">
+                Built for retail businesses that upload products regularly and want a faster path from stock arrival to online listing.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-4">
+                <Link href="/studio" className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3.5 text-sm font-semibold text-[#0a0a0a] transition-colors hover:bg-neutral-100">
+                  Request Demo Access <Send className="h-4 w-4" />
+                </Link>
+                <a href="#faq" className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-white/5">
+                  Read FAQ
+                </a>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {['Phone photos accepted', 'Product images generated', 'SEO copy included', 'Catalog export ready'].map((item) => (
+                  <div key={item} className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 p-4">
+                    <CheckCircle2 className="h-5 w-5 shrink-0 text-white" />
+                    <span className="text-sm font-medium text-neutral-200">{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Reveal>
+      </Section>
+
+      <Section id="faq">
+        <Reveal>
+          <SectionBadge>FAQ</SectionBadge>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Questions buyers ask before a demo.</h2>
+        </Reveal>
+        <div className="mx-auto mt-12 max-w-3xl">
+          <FaqItem q="Do I need professional product photos?" a="No. You can start with clear product photos from a phone or camera. Better source photos usually create better output, but the workflow is designed for practical retail use." />
+          <FaqItem q="What does MITTY Studio create?" a="It creates product images, SEO-ready titles, descriptions, catalog attributes, and export-ready content for product listing workflows." />
+          <FaqItem q="Is it only for clothing?" a="No. MITTY Studio supports fashion, jewellery, watches, footwear, perfumes, bags, accessories, boutiques, D2C brands, and marketplace sellers." />
+          <FaqItem q="Can my team export catalog content?" a="Yes. The workflow is designed to prepare content that can be downloaded and used by catalog or marketplace upload teams." />
+          <FaqItem q="Is public signup open?" a="Public signup is not open right now. Access is currently through private demo." />
+        </div>
+      </Section>
+
+      <footer className="border-t border-neutral-200 bg-white px-5 pb-24 pt-10 sm:px-8 md:pb-10">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
+          <div className="flex items-center gap-2.5">
+            <Image src="/mitty-studio-logo.png" alt="MITTY Studio" width={28} height={28} className="h-7 w-7 rounded-sm object-contain" />
+            <span className="text-sm font-bold tracking-tight">MITTY Studio</span>
+          </div>
+          <p className="text-xs text-neutral-400">&copy; {new Date().getFullYear()} MITTY Studio. All rights reserved.</p>
+        </div>
+      </footer>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-neutral-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur md:hidden">
+        <Link href="/studio" className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0a0a0a] px-5 py-3 text-sm font-semibold text-white">
+          Request Demo Access <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
+    </div>
   );
 }

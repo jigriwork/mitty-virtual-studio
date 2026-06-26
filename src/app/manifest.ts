@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'MITTY Virtual Studio',
     short_name: 'MITTY Studio',
-    description: 'AI-powered e-commerce asset generation for MITTY products.',
+    description: 'E-commerce product content and catalog generation for MITTY products.',
     start_url: '/',
     scope: '/',
     display: 'standalone',

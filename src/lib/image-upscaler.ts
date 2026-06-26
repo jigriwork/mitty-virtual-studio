@@ -27,7 +27,7 @@ export async function upscaleForDownload(dataUri: string): Promise<string> {
   const img = await loadImageFromUri(dataUri);
   const { width, height } = img;
 
-  // Already high-res — return as-is.
+  // Already high-res. Return as-is.
   if (width >= UPSCALE_TARGET && height >= UPSCALE_TARGET) {
     return dataUri;
   }

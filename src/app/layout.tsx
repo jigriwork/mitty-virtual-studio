@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     default: 'MITTY Virtual Studio',
     template: '%s | MITTY Virtual Studio',
   },
-  description: 'AI-powered E-commerce Asset Generation',
+  description: 'E-commerce product content and catalog generation',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,

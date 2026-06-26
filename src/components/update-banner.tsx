@@ -29,7 +29,7 @@ export function UpdateBanner() {
         localStorage.setItem(LS_KEY, APP_VERSION);
       }
     } catch {
-      // localStorage unavailable (private browsing, etc.) — do nothing
+      // localStorage unavailable (private browsing, etc.). Do nothing
     }
   }, []);
 

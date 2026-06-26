@@ -263,7 +263,7 @@ export function FileUpload({ form, name, title, helperText, badge, compact = fal
             <span className="text-[10px] opacity-70">· Optimized for web generation</span>
           )}
           {tooLarge && (
-            <span className="ml-auto font-medium">Still large — consider a smaller photo</span>
+            <span className="ml-auto font-medium">Still large. Consider a smaller photo</span>
           )}
         </div>
       )}

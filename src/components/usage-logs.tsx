@@ -102,7 +102,7 @@ const toNumber = (value: number | string | null | undefined) => {
 };
 
 const getSafeMetadataLabel = (metadata: SafeUsageMetadata | null) => {
-    if (!metadata) return '—';
+    if (!metadata) return 'N/A';
 
     const parts: string[] = [];
 
@@ -114,7 +114,7 @@ const getSafeMetadataLabel = (metadata: SafeUsageMetadata | null) => {
         parts.push(`manual color: ${metadata.isManualColor ? 'yes' : 'no'}`);
     }
 
-    return parts.length > 0 ? parts.join(' · ') : '—';
+    return parts.length > 0 ? parts.join(' · ') : 'N/A';
 };
 
 export function UsageLogs() {
@@ -391,9 +391,9 @@ export function UsageLogs() {
                                         logs.map((log) => (
                                             <TableRow key={log.id}>
                                                 <TableCell className="whitespace-nowrap">{formatDateTime(log.created_at)}</TableCell>
-                                                <TableCell className="whitespace-nowrap">{log.user_email || '—'}</TableCell>
+                                                <TableCell className="whitespace-nowrap">{log.user_email || 'N/A'}</TableCell>
                                                 <TableCell className="whitespace-nowrap font-medium">{log.generation_type}</TableCell>
-                                                <TableCell>{log.category || '—'}</TableCell>
+                                                <TableCell>{log.category || 'N/A'}</TableCell>
                                                 <TableCell className="text-right">{log.requested_images || 0}</TableCell>
                                                 <TableCell className="text-right">{log.successful_images || 0}</TableCell>
                                                 <TableCell className="text-right">{log.failed_images || 0}</TableCell>

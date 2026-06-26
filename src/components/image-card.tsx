@@ -42,7 +42,7 @@ export function ImageCard({ title, imageSrc, isLoading, onRegenerate, fileName, 
       link.click();
       document.body.removeChild(link);
     } catch {
-      // Fallback — download original if upscale fails.
+      // Fallback. Download original if upscale fails.
       const link = document.createElement('a');
       link.href = imageSrc;
       link.download = fileName;

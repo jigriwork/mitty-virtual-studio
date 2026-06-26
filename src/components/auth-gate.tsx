@@ -1,6 +1,7 @@
 'use client';
 
-import { Loader2, LockKeyhole } from 'lucide-react';
+import { ArrowLeft, Loader2, LockKeyhole } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from '@/lib/supabase/client';
@@ -253,6 +254,9 @@ export function AuthGate({ children }: AuthGateProps) {
         <p className="mt-6 text-center text-xs text-[#8a6635]/60">
           MITTY Virtual Studio &bull; {APP_VERSION_LABEL}
         </p>
+        <Link href="/" className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[#8a6635]/70 transition-colors hover:text-[#8a6635]">
+          <ArrowLeft className="h-3 w-3" /> Back to Homepage
+        </Link>
       </main>
     );
   }

@@ -114,7 +114,7 @@ function SidebarNav({
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#d4b06a]">
               MITTY
             </p>
-            <p className="text-sm text-white/60">Asset command center</p>
+            <p className="text-sm text-white/60">Product content studio</p>
           </div>
         </div>
         <nav className="space-y-2">
