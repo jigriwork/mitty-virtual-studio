@@ -23,8 +23,9 @@ import {
 } from '@/components/ui/table';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
-type UsagePeriod = 'today' | 'month' | 'all';
+type UsagePeriod = 'today' | 'month' | 'custom' | 'all';
 type GenerationTypeFilter = 'all' | 'title_description' | 'full_product_images' | 'regenerate_image';
+type UserEmailFilter = 'all' | string;
 
 type SafeUsageMetadata = {
     view?: unknown;
@@ -59,6 +60,20 @@ const getPeriodStart = (period: UsagePeriod) => {
     }
 
     return null;
+};
+
+const getDateInputStart = (value: string) => {
+    if (!value) return null;
+    const date = new Date(`${value}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const getDateInputEnd = (value: string) => {
+    if (!value) return null;
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return null;
+    date.setDate(date.getDate() + 1);
+    return date;
 };
 
 const formatDateTime = (value: string) =>
@@ -105,10 +120,41 @@ const getSafeMetadataLabel = (metadata: SafeUsageMetadata | null) => {
 export function UsageLogs() {
     const [period, setPeriod] = useState<UsagePeriod>('today');
     const [generationType, setGenerationType] = useState<GenerationTypeFilter>('all');
-    const [userEmail, setUserEmail] = useState('');
+    const [selectedUserEmail, setSelectedUserEmail] = useState<UserEmailFilter>('all');
+    const [customStartDate, setCustomStartDate] = useState('');
+    const [customEndDate, setCustomEndDate] = useState('');
+    const [userOptions, setUserOptions] = useState<string[]>([]);
     const [logs, setLogs] = useState<UsageLogRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
+
+    const loadUserOptions = useCallback(async () => {
+        try {
+            const supabase = getSupabaseBrowserClient();
+            const { data, error } = await supabase
+                .from('ai_usage_logs')
+                .select('user_email')
+                .not('user_email', 'is', null)
+                .order('user_email', { ascending: true })
+                .limit(1000);
+
+            if (error) {
+                throw error;
+            }
+
+            const emails = Array.from(
+                new Set(
+                    (data || [])
+                        .map((row) => row.user_email)
+                        .filter((email): email is string => Boolean(email?.trim()))
+                )
+            );
+
+            setUserOptions(emails);
+        } catch {
+            setUserOptions([]);
+        }
+    }, []);
 
     const loadLogs = useCallback(async () => {
         setLoading(true);
@@ -117,13 +163,23 @@ export function UsageLogs() {
         try {
             const supabase = getSupabaseBrowserClient();
             const periodStart = getPeriodStart(period);
+            const customStart = period === 'custom' ? getDateInputStart(customStartDate) : null;
+            const customEnd = period === 'custom' ? getDateInputEnd(customEndDate) : null;
             let query = supabase
                 .from('ai_usage_logs')
                 .select('id, created_at, user_email, generation_type, category, requested_images, successful_images, failed_images, estimated_image_cost_inr, estimated_text_cost_inr, estimated_total_cost_inr, status, metadata')
                 .order('created_at', { ascending: false })
-                .limit(100);
+                .limit(250);
 
-            if (periodStart) {
+            if (period === 'custom') {
+                if (customStart) {
+                    query = query.gte('created_at', customStart.toISOString());
+                }
+
+                if (customEnd) {
+                    query = query.lt('created_at', customEnd.toISOString());
+                }
+            } else if (periodStart) {
                 query = query.gte('created_at', periodStart.toISOString());
             }
 
@@ -131,8 +187,8 @@ export function UsageLogs() {
                 query = query.eq('generation_type', generationType);
             }
 
-            if (userEmail.trim()) {
-                query = query.ilike('user_email', `%${userEmail.trim()}%`);
+            if (selectedUserEmail !== 'all') {
+                query = query.eq('user_email', selectedUserEmail);
             }
 
             const { data, error } = await query;
@@ -147,7 +203,11 @@ export function UsageLogs() {
         } finally {
             setLoading(false);
         }
-    }, [generationType, period, userEmail]);
+    }, [customEndDate, customStartDate, generationType, period, selectedUserEmail]);
+
+    useEffect(() => {
+        void loadUserOptions();
+    }, [loadUserOptions]);
 
     useEffect(() => {
         void loadLogs();
@@ -224,7 +284,7 @@ export function UsageLogs() {
             <Card className="min-w-0 border-black/10 bg-white shadow-sm">
                 <CardHeader className="border-b border-black/10">
                     <CardTitle className="text-lg text-[#171717]">Latest logs</CardTitle>
-                    <div className="grid gap-3 pt-3 md:grid-cols-3">
+                    <div className="grid gap-3 pt-3 md:grid-cols-2 xl:grid-cols-4">
                         <div className="grid gap-2">
                             <Label>Period</Label>
                             <Select value={period} onValueChange={(value) => setPeriod(value as UsagePeriod)}>
@@ -232,6 +292,7 @@ export function UsageLogs() {
                                 <SelectContent>
                                     <SelectItem value="today">Today</SelectItem>
                                     <SelectItem value="month">This month</SelectItem>
+                                    <SelectItem value="custom">Custom dates</SelectItem>
                                     <SelectItem value="all">All</SelectItem>
                                 </SelectContent>
                             </Select>
@@ -249,14 +310,39 @@ export function UsageLogs() {
                             </Select>
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="usage-user-email">User email</Label>
-                            <Input
-                                id="usage-user-email"
-                                value={userEmail}
-                                onChange={(event) => setUserEmail(event.target.value)}
-                                placeholder="Filter by email"
-                            />
+                            <Label>User</Label>
+                            <Select value={selectedUserEmail} onValueChange={(value) => setSelectedUserEmail(value as UserEmailFilter)}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All users</SelectItem>
+                                    {userOptions.map((email) => (
+                                        <SelectItem key={email} value={email}>{email}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
+                        {period === 'custom' && (
+                            <>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="usage-start-date">Start date</Label>
+                                    <Input
+                                        id="usage-start-date"
+                                        type="date"
+                                        value={customStartDate}
+                                        onChange={(event) => setCustomStartDate(event.target.value)}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="usage-end-date">End date</Label>
+                                    <Input
+                                        id="usage-end-date"
+                                        type="date"
+                                        value={customEndDate}
+                                        onChange={(event) => setCustomEndDate(event.target.value)}
+                                    />
+                                </div>
+                            </>
+                        )}
                     </div>
                 </CardHeader>
                 <CardContent className="min-w-0 p-0">
