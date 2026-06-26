@@ -15,6 +15,7 @@ import { generatePerfumeBoxFront } from '@/ai/flows/generate-perfume-box-front';
 import { generatePerfumeBoxBack } from '@/ai/flows/generate-perfume-box-back';
 import { generatePerfumeHeroView } from '@/ai/flows/generate-perfume-hero-view';
 
+import { logAiUsage } from '@/app/actions/ai-usage';
 import { AppShell, type AppSection } from '@/components/app-shell';
 import { AuthGate, type AuthContextValue } from '@/components/auth-gate';
 import { BulkCatalogImport } from '@/components/bulk-catalog-import';
@@ -24,6 +25,7 @@ import { ProductForm } from '@/components/product-form';
 import { ProductHistory } from '@/components/product-history';
 import { ResultsDisplay } from '@/components/results-display';
 import { StudioWorkspace } from '@/components/studio-workspace';
+import { UsageLogs } from '@/components/usage-logs';
 import { useToast } from '@/hooks/use-toast';
 import type {
   GenerationProgressState,
@@ -46,6 +48,13 @@ import {
 } from '@/lib/workflow-draft';
 import { incrementProductsGenerated } from '@/lib/workflow-metrics';
 import type { GenerateProductViewInput } from '@/ai/flows/types';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import {
+  GEMINI_IMAGE_MODEL,
+  GEMINI_TEXT_MODEL,
+  type AiUsageGenerationType,
+  type AiUsageStatus,
+} from '@/lib/ai-usage-costs';
 
 type GeneratingState = {
   all: boolean;
@@ -59,7 +68,27 @@ type GeneratingState = {
 
 type ProductCategory = ProductFormValues['productCategory'];
 
+type UsageLogInput = {
+  generationType: AiUsageGenerationType;
+  category?: string;
+  productTitle?: string;
+  requestedImages?: number;
+  successfulImages?: number;
+  failedImages?: number;
+  model?: string;
+  status: AiUsageStatus;
+  errorMessage?: string;
+  metadata?: Record<string, string | number | boolean | null>;
+};
+
+type RegenerateUsageSnapshot = {
+  category?: string;
+  productTitle?: string;
+  isManualColor: boolean;
+};
+
 const progressBands = [0, 10, 20, 40, 60, 80, 100];
+const PLATFORM_ADMIN_EMAILS = new Set(['admin@gpbm.in']);
 
 const defaultProductFormValues: ProductFormValues = {
   gender: 'Male',
@@ -237,7 +266,7 @@ export default function Home() {
 function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
   const [activeSection, setActiveSection] = useState<AppSection>('studio');
   const [results, setResults] = useState<GenerationResults | null>(null);
-  const [productImageUris, setProductImageUris] = useState<{[key:string]: string}>({});
+  const [productImageUris, setProductImageUris] = useState<{ [key: string]: string }>({});
   const [progress, setProgress] = useState<GenerationProgressState>({
     status: 'idle',
     percent: 0,
@@ -257,11 +286,44 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
   const userEditedBeforeDraftHydrationRef = useRef(false);
   const previousCategoryRef = useRef<ProductCategory>(defaultProductFormValues.productCategory);
   const { toast } = useToast();
+  const isPlatformAdmin = PLATFORM_ADMIN_EMAILS.has(auth.email.toLowerCase());
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: defaultProductFormValues,
   });
+
+  const writeUsageLog = async (input: UsageLogInput) => {
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { data, error } = await supabase.auth.getSession();
+
+      if (error || !data.session?.access_token) {
+        throw new Error(error?.message || 'Missing session for usage logging.');
+      }
+
+      const result = await logAiUsage({
+        accessToken: data.session.access_token,
+        userId: auth.user.id,
+        userEmail: auth.email,
+        ...input,
+      });
+
+      if (!result.ok) {
+        throw new Error(result.error || 'Usage log insert failed.');
+      }
+
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown usage logging error.';
+      console.warn('AI usage logging skipped:', {
+        generationType: input.generationType,
+        status: input.status,
+        message,
+      });
+      return false;
+    }
+  };
 
   useEffect(() => {
     if (draftHydrated) {
@@ -490,9 +552,51 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
         throw error;
       }
     };
-    
+
+    const runFullProductImageBatch = async ({
+      category,
+      productTitle,
+      isManualColor,
+      items,
+    }: {
+      category: ProductCategory;
+      productTitle?: string;
+      isManualColor: boolean;
+      items: Array<{ view: string; run: () => Promise<string> }>;
+    }) => {
+      const settled = await Promise.allSettled(items.map((item) => item.run()));
+      const successfulImages = settled.filter((result) => result.status === 'fulfilled').length;
+      const failedImages = settled.length - successfulImages;
+      const firstFailure = settled.find((result) => result.status === 'rejected');
+      const status: AiUsageStatus = failedImages === 0
+        ? 'success'
+        : successfulImages > 0
+          ? 'partial_success'
+          : 'failed';
+
+      await writeUsageLog({
+        generationType: 'full_product_images',
+        category,
+        productTitle,
+        requestedImages: items.length,
+        successfulImages,
+        failedImages,
+        model: GEMINI_IMAGE_MODEL,
+        status,
+        errorMessage: firstFailure?.status === 'rejected' ? getSafeGenerationErrorMessage(firstFailure.reason) : undefined,
+        metadata: {
+          views: items.map((item) => item.view).join(','),
+          isManualColor,
+        },
+      });
+
+      if (firstFailure?.status === 'rejected') {
+        throw firstFailure.reason;
+      }
+    };
+
     try {
-      const uris: {[key: string]: string} = {};
+      const uris: { [key: string]: string } = {};
       const allOptimized: OptimizedImage[] = [];
       const selectedColor = data.color?.trim() || '';
       const isManualColor = selectedColor.length > 0;
@@ -515,7 +619,7 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
       };
 
       markStepActive('prepare');
-      const baseFlowInput: Partial<GenerateProductViewInput> = { 
+      const baseFlowInput: Partial<GenerateProductViewInput> = {
         productCategory: data.productCategory,
         gender: data.gender,
         fabricType: data.fabricType,
@@ -569,9 +673,9 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
         baseFlowInput.productImageBack = backUri;
       } else if (data.productCategory === 'Perfume') {
         const [bottleUri, boxFrontUri, boxBackUri] = await Promise.all([
-            optimizeAndTrack(getUploadedFile(data.bottleImageFile, 'Perfume bottle image')),
-            optimizeAndTrack(getUploadedFile(data.boxFrontImageFile, 'Perfume box front image')),
-            optimizeAndTrack(getUploadedFile(data.boxBackImageFile, 'Perfume box back image')),
+          optimizeAndTrack(getUploadedFile(data.bottleImageFile, 'Perfume bottle image')),
+          optimizeAndTrack(getUploadedFile(data.boxFrontImageFile, 'Perfume box front image')),
+          optimizeAndTrack(getUploadedFile(data.boxBackImageFile, 'Perfume box back image')),
         ]);
         uris.bottle = bottleUri;
         uris.boxFront = boxFrontUri;
@@ -631,7 +735,38 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
 
       // First, generate text and detect color
       markStepActive('seo');
-      const textResult = await generateProductTitleDescription(baseFlowInput as GenerateProductViewInput);
+      let textResult: Awaited<ReturnType<typeof generateProductTitleDescription>>;
+      try {
+        textResult = await generateProductTitleDescription(baseFlowInput as GenerateProductViewInput);
+        await writeUsageLog({
+          generationType: 'title_description',
+          category: data.productCategory,
+          productTitle: textResult.productTitle,
+          requestedImages: 0,
+          successfulImages: 0,
+          failedImages: 0,
+          model: GEMINI_TEXT_MODEL,
+          status: 'success',
+          metadata: {
+            isManualColor,
+          },
+        });
+      } catch (error) {
+        await writeUsageLog({
+          generationType: 'title_description',
+          category: data.productCategory,
+          requestedImages: 0,
+          successfulImages: 0,
+          failedImages: 0,
+          model: GEMINI_TEXT_MODEL,
+          status: 'failed',
+          errorMessage: getSafeGenerationErrorMessage(error),
+          metadata: {
+            isManualColor,
+          },
+        });
+        throw error;
+      }
       markStepCompleted('seo');
       markStepActive('color');
       const detectedColor = textResult.detectedColor;
@@ -667,29 +802,44 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
 
       if (data.productCategory === 'Trousers') {
         setGenerating((prev) => ({ ...prev, frontView: true, backView: true, textureView: true, flatlay: true }));
-        await Promise.all([
-          runImageStep('front', 'frontView', generateFrontView(imageFlowInput), (result) => result.frontView),
-          runImageStep('back', 'backView', generateBackView(imageFlowInput), (result) => result.backView),
-          runImageStep('texture', 'textureView', generateTextureView(imageFlowInput), (result) => result.textureView),
-          runImageStep('flatlay', 'hdFlatlayImage', generateHdFlatlay(imageFlowInput), (result) => result.hdFlatlayImage),
-        ]);
+        await runFullProductImageBatch({
+          category: data.productCategory,
+          productTitle: textResult.productTitle,
+          isManualColor,
+          items: [
+            { view: 'front', run: () => runImageStep('front', 'frontView', generateFrontView(imageFlowInput), (result) => result.frontView) },
+            { view: 'back', run: () => runImageStep('back', 'backView', generateBackView(imageFlowInput), (result) => result.backView) },
+            { view: 'texture', run: () => runImageStep('texture', 'textureView', generateTextureView(imageFlowInput), (result) => result.textureView) },
+            { view: 'flatlay', run: () => runImageStep('flatlay', 'hdFlatlayImage', generateHdFlatlay(imageFlowInput), (result) => result.hdFlatlayImage) },
+          ],
+        });
 
       } else if (data.productCategory === 'Perfume') {
         setGenerating((prev) => ({ ...prev, frontView: true, sideView: true, backView: true, heroView: true }));
-        await Promise.all([
-          runImageStep('front', 'frontView', generatePerfumeBottleFront(imageFlowInput), (result) => result.perfumeBottleFront),
-          runImageStep('side', 'sideView', generatePerfumeBoxFront(imageFlowInput), (result) => result.perfumeBoxFront),
-          runImageStep('back', 'backView', generatePerfumeBoxBack(imageFlowInput), (result) => result.perfumeBoxBack),
-          runImageStep('hero', 'heroView', generatePerfumeHeroView(imageFlowInput), (result) => result.perfumeHeroView),
-        ]);
+        await runFullProductImageBatch({
+          category: data.productCategory,
+          productTitle: textResult.productTitle,
+          isManualColor,
+          items: [
+            { view: 'front', run: () => runImageStep('front', 'frontView', generatePerfumeBottleFront(imageFlowInput), (result) => result.perfumeBottleFront) },
+            { view: 'side', run: () => runImageStep('side', 'sideView', generatePerfumeBoxFront(imageFlowInput), (result) => result.perfumeBoxFront) },
+            { view: 'back', run: () => runImageStep('back', 'backView', generatePerfumeBoxBack(imageFlowInput), (result) => result.perfumeBoxBack) },
+            { view: 'hero', run: () => runImageStep('hero', 'heroView', generatePerfumeHeroView(imageFlowInput), (result) => result.perfumeHeroView) },
+          ],
+        });
       } else {
         setGenerating((prev) => ({ ...prev, frontView: true, sideView: true, backView: true, flatlay: true }));
-        await Promise.all([
-          runImageStep('front', 'frontView', generateFrontView(imageFlowInput), (result) => result.frontView),
-          runImageStep('side', 'sideView', generateSideView(imageFlowInput), (result) => result.sideView),
-          runImageStep('back', 'backView', generateBackView(imageFlowInput), (result) => result.backView),
-          runImageStep('flatlay', 'hdFlatlayImage', generateHdFlatlay(imageFlowInput), (result) => result.hdFlatlayImage),
-        ]);
+        await runFullProductImageBatch({
+          category: data.productCategory,
+          productTitle: textResult.productTitle,
+          isManualColor,
+          items: [
+            { view: 'front', run: () => runImageStep('front', 'frontView', generateFrontView(imageFlowInput), (result) => result.frontView) },
+            { view: 'side', run: () => runImageStep('side', 'sideView', generateSideView(imageFlowInput), (result) => result.sideView) },
+            { view: 'back', run: () => runImageStep('back', 'backView', generateBackView(imageFlowInput), (result) => result.backView) },
+            { view: 'flatlay', run: () => runImageStep('flatlay', 'hdFlatlayImage', generateHdFlatlay(imageFlowInput), (result) => result.hdFlatlayImage) },
+          ],
+        });
       }
 
       markStepActive('finalizeSeo');
@@ -780,8 +930,47 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
     return flowInput;
   }
 
+  const getRegenerateUsageSnapshot = (): RegenerateUsageSnapshot => {
+    const formValues = form.getValues();
+
+    return {
+      category: results?.productCategory || formValues.productCategory,
+      productTitle: results?.productTitle,
+      isManualColor: Boolean(results?.isManualColor),
+    };
+  };
+
+  const logRegenerateUsage = async ({
+    view,
+    status,
+    snapshot,
+    error,
+  }: {
+    view: string;
+    status: AiUsageStatus;
+    snapshot: RegenerateUsageSnapshot;
+    error?: unknown;
+  }) => {
+    await writeUsageLog({
+      generationType: 'regenerate_image',
+      category: snapshot.category,
+      productTitle: snapshot.productTitle,
+      requestedImages: 1,
+      successfulImages: status === 'success' ? 1 : 0,
+      failedImages: status === 'success' ? 0 : 1,
+      model: GEMINI_IMAGE_MODEL,
+      status,
+      errorMessage: error ? getSafeGenerationErrorMessage(error) : undefined,
+      metadata: {
+        view,
+        isManualColor: snapshot.isManualColor,
+      },
+    });
+  };
+
   const handleRegenerateFrontView = async () => {
     if (Object.keys(productImageUris).length === 0) return;
+    const usageSnapshot = getRegenerateUsageSnapshot();
     setGenerating((prev) => ({ ...prev, frontView: true }));
     try {
       const flowInput = getFlowInputForRegen();
@@ -790,9 +979,11 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
         : { frontView: (await generateFrontView(flowInput)).frontView };
 
       setResults((prev) => (prev ? { ...prev, ...newResult } : null));
-       toast({ title: "Front View Regenerated", description: "The front view image has been updated." });
+      await logRegenerateUsage({ view: 'front', status: 'success', snapshot: usageSnapshot });
+      toast({ title: "Front View Regenerated", description: "The front view image has been updated." });
     } catch (e) {
       console.error(e);
+      await logRegenerateUsage({ view: 'front', status: 'failed', snapshot: usageSnapshot, error: e });
       toast({ variant: 'destructive', title: 'Regeneration Failed', description: getSafeGenerationErrorMessage(e) });
     } finally {
       setGenerating((prev) => ({ ...prev, frontView: false }));
@@ -801,6 +992,7 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
 
   const handleRegenerateSideView = async () => {
     if (Object.keys(productImageUris).length === 0) return;
+    const usageSnapshot = getRegenerateUsageSnapshot();
     setGenerating((prev) => ({ ...prev, sideView: true }));
     try {
       const flowInput = getFlowInputForRegen();
@@ -809,9 +1001,11 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
         : { sideView: (await generateSideView(flowInput)).sideView };
 
       setResults((prev) => (prev ? { ...prev, ...newResult } : null));
-       toast({ title: "Side View Regenerated", description: "The image has been updated." });
+      await logRegenerateUsage({ view: 'side', status: 'success', snapshot: usageSnapshot });
+      toast({ title: "Side View Regenerated", description: "The image has been updated." });
     } catch (e) {
       console.error(e);
+      await logRegenerateUsage({ view: 'side', status: 'failed', snapshot: usageSnapshot, error: e });
       toast({ variant: 'destructive', title: 'Regeneration Failed', description: getSafeGenerationErrorMessage(e) });
     } finally {
       setGenerating((prev) => ({ ...prev, sideView: false }));
@@ -820,17 +1014,20 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
 
   const handleRegenerateBackView = async () => {
     if (Object.keys(productImageUris).length === 0) return;
+    const usageSnapshot = getRegenerateUsageSnapshot();
     setGenerating((prev) => ({ ...prev, backView: true }));
     try {
       const flowInput = getFlowInputForRegen();
       const newResult = flowInput.productCategory === 'Perfume'
         ? { backView: (await generatePerfumeBoxBack(flowInput)).perfumeBoxBack }
         : { backView: (await generateBackView(flowInput)).backView };
-      
+
       setResults((prev) => (prev ? { ...prev, ...newResult } : null));
-       toast({ title: "Back View Regenerated", description: "The back view image has been updated." });
+      await logRegenerateUsage({ view: 'back', status: 'success', snapshot: usageSnapshot });
+      toast({ title: "Back View Regenerated", description: "The back view image has been updated." });
     } catch (e) {
       console.error(e);
+      await logRegenerateUsage({ view: 'back', status: 'failed', snapshot: usageSnapshot, error: e });
       toast({ variant: 'destructive', title: 'Regeneration Failed', description: getSafeGenerationErrorMessage(e) });
     } finally {
       setGenerating((prev) => ({ ...prev, backView: false }));
@@ -839,28 +1036,34 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
 
   const handleRegenerateTextureView = async () => { // Only for trousers
     if (!productImageUris.fabric) return;
+    const usageSnapshot = getRegenerateUsageSnapshot();
     setGenerating((prev) => ({ ...prev, textureView: true }));
     try {
       const result = await generateTextureView(getFlowInputForRegen());
       setResults((prev) => (prev ? { ...prev, ...result } : null));
+      await logRegenerateUsage({ view: 'texture', status: 'success', snapshot: usageSnapshot });
       toast({ title: "Texture View Regenerated", description: "The texture image has been updated." });
     } catch (e) {
       console.error(e);
+      await logRegenerateUsage({ view: 'texture', status: 'failed', snapshot: usageSnapshot, error: e });
       toast({ variant: 'destructive', title: 'Regeneration Failed', description: getSafeGenerationErrorMessage(e) });
     } finally {
       setGenerating((prev) => ({ ...prev, textureView: false }));
     }
   };
-  
+
   const handleRegenerateHeroView = async () => { // Only for perfume
     if (Object.keys(productImageUris).length === 0) return;
+    const usageSnapshot = getRegenerateUsageSnapshot();
     setGenerating((prev) => ({ ...prev, heroView: true }));
     try {
       const result = await generatePerfumeHeroView(getFlowInputForRegen());
       setResults((prev) => (prev ? { ...prev, heroView: result.perfumeHeroView } : null));
+      await logRegenerateUsage({ view: 'hero', status: 'success', snapshot: usageSnapshot });
       toast({ title: "Hero View Regenerated", description: "The image has been updated." });
     } catch (e) {
       console.error(e);
+      await logRegenerateUsage({ view: 'hero', status: 'failed', snapshot: usageSnapshot, error: e });
       toast({
         variant: 'destructive',
         title: 'Regeneration Failed',
@@ -874,13 +1077,16 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
 
   const handleRegenerateFlatlay = async () => {
     if (Object.keys(productImageUris).length === 0) return;
+    const usageSnapshot = getRegenerateUsageSnapshot();
     setGenerating((prev) => ({ ...prev, flatlay: true }));
     try {
       const flatlay = await generateHdFlatlay(getFlowInputForRegen());
       setResults((prev) => prev ? { ...prev, hdFlatlayImage: flatlay.hdFlatlayImage } : null);
+      await logRegenerateUsage({ view: 'flatlay', status: 'success', snapshot: usageSnapshot });
       toast({ title: "HD Flat Lay / Top View Regenerated", description: "The image has been updated." });
     } catch (e) {
       console.error(e);
+      await logRegenerateUsage({ view: 'flatlay', status: 'failed', snapshot: usageSnapshot, error: e });
       toast({
         variant: 'destructive',
         title: 'Regeneration Failed',
@@ -922,6 +1128,8 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
       sectionContent = studioContent;
     } else if (activeSection === 'products') {
       sectionContent = <ProductHistory />;
+    } else if (activeSection === 'usage') {
+      sectionContent = isPlatformAdmin ? <UsageLogs /> : <PlaceholderSection section="usage" />;
     } else if (activeSection === 'staff' && auth.role !== 'owner') {
       sectionContent = <PlaceholderSection section="settings" />;
     } else if (activeSection !== 'bulkImport' && activeSection !== 'settings') {
@@ -947,6 +1155,7 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
       onSectionChange={setActiveSection}
       userEmail={auth.email}
       userRole={auth.role}
+      isPlatformAdmin={isPlatformAdmin}
       onLogout={() => {
         void auth.logout();
       }}

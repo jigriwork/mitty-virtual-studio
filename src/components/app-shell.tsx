@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   LogOut,
   Package,
+  ReceiptText,
   Settings,
   Users,
 } from 'lucide-react';
@@ -15,7 +16,7 @@ import { MittyLogo } from '@/components/mitty-logo';
 import { APP_VERSION, APP_VERSION_LABEL } from '@/lib/app-version';
 import { cn } from '@/lib/utils';
 
-export type AppSection = 'studio' | 'bulkImport' | 'products' | 'review' | 'settings' | 'staff';
+export type AppSection = 'studio' | 'bulkImport' | 'products' | 'review' | 'settings' | 'usage' | 'staff';
 
 type NavItem = {
   id: AppSection;
@@ -29,6 +30,7 @@ const navItems: NavItem[] = [
   { id: 'products', label: 'Products', icon: Package },
   { id: 'review', label: 'Review', icon: CheckCircle2 },
   { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'usage', label: 'Usage Logs', icon: ReceiptText },
   { id: 'staff', label: 'Staff', icon: Users },
 ];
 
@@ -38,20 +40,21 @@ type AppShellProps = {
   children: ReactNode;
   userEmail: string;
   userRole: 'owner' | 'staff';
+  isPlatformAdmin: boolean;
   onLogout: () => void;
 };
 
-export function AppShell({ activeSection, onSectionChange, children, userEmail, userRole, onLogout }: AppShellProps) {
+export function AppShell({ activeSection, onSectionChange, children, userEmail, userRole, isPlatformAdmin, onLogout }: AppShellProps) {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(183,141,74,0.12),_transparent_32rem),linear-gradient(180deg,_#faf7f0_0%,_#f4efe6_100%)] text-foreground">
-      <SidebarNav activeSection={activeSection} onSectionChange={onSectionChange} userRole={userRole} />
+      <SidebarNav activeSection={activeSection} onSectionChange={onSectionChange} userRole={userRole} isPlatformAdmin={isPlatformAdmin} />
       <div className="min-h-screen min-w-0 lg:pl-72">
         <Header userEmail={userEmail} userRole={userRole} onLogout={onLogout} />
         <main className="min-w-0 px-4 pb-28 pt-4 sm:px-6 lg:px-8 lg:pb-8">
           {children}
         </main>
       </div>
-      <MobileNav activeSection={activeSection} onSectionChange={onSectionChange} userRole={userRole} />
+      <MobileNav activeSection={activeSection} onSectionChange={onSectionChange} userRole={userRole} isPlatformAdmin={isPlatformAdmin} />
     </div>
   );
 }
@@ -94,9 +97,12 @@ function SidebarNav({
   activeSection,
   onSectionChange,
   userRole,
-}: Pick<AppShellProps, 'activeSection' | 'onSectionChange' | 'userRole'>) {
+  isPlatformAdmin,
+}: Pick<AppShellProps, 'activeSection' | 'onSectionChange' | 'userRole' | 'isPlatformAdmin'>) {
   const visibleNavItems = navItems.filter((item) =>
-    item.id !== 'review' && (item.id !== 'staff' || userRole === 'owner')
+    item.id !== 'review' &&
+    (item.id !== 'staff' || userRole === 'owner') &&
+    (item.id !== 'usage' || isPlatformAdmin)
   );
 
   return (
@@ -138,9 +144,12 @@ function MobileNav({
   activeSection,
   onSectionChange,
   userRole,
-}: Pick<AppShellProps, 'activeSection' | 'onSectionChange' | 'userRole'>) {
+  isPlatformAdmin,
+}: Pick<AppShellProps, 'activeSection' | 'onSectionChange' | 'userRole' | 'isPlatformAdmin'>) {
   const visibleNavItems = navItems.filter((item) =>
-    item.id !== 'review' && (item.id !== 'staff' || userRole === 'owner')
+    item.id !== 'review' &&
+    (item.id !== 'staff' || userRole === 'owner') &&
+    (item.id !== 'usage' || isPlatformAdmin)
   );
 
   return (

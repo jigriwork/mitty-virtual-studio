@@ -19,6 +19,10 @@ const copy: Record<Exclude<AppSection, 'studio'>, { title: string; body: string 
     title: 'Settings',
     body: 'Brand defaults, staff access, export preferences, and AI controls will be configured here soon.',
   },
+  usage: {
+    title: 'Usage Logs',
+    body: 'Platform admin usage logs are internal only and are not available for this account.',
+  },
   staff: {
     title: 'Staff Management',
     body: 'Staff Management is coming soon. Add team members through the admin process for now.',
