@@ -14,6 +14,7 @@ import { CatalogBuilder } from './catalog-builder';
 import { upscaleToBlob } from '@/lib/image-upscaler';
 import { downloadBlob, shareFileOrDownload } from '@/lib/file-actions';
 import { incrementZipExports } from '@/lib/workflow-metrics';
+import { getBrandName } from '@/lib/brand-profile';
 
 interface ResultsDisplayProps {
   results: GenerationResults | null;
@@ -49,6 +50,7 @@ export function ResultsDisplay({
   onRetryGeneration,
 }: ResultsDisplayProps) {
   const [zipping, setZipping] = useState(false);
+  const brandName = getBrandName();
   
   const createProductZip = async () => {
     if (!results) return;
@@ -188,7 +190,7 @@ export function ResultsDisplay({
           blob: zipResult.zipBlob,
           fileName: zipResult.zipFileName,
           title: zipResult.productTitle,
-          text: 'Mitty product images and product details.',
+          text: `${brandName} product images and product details.`,
         });
         incrementZipExports();
       }

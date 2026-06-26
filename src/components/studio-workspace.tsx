@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { CheckCircle2, Clock3 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { getPlatformName } from '@/lib/brand-profile';
 import { DashboardStats } from './dashboard-stats';
 
 type StudioWorkspaceProps = {
@@ -12,6 +13,7 @@ type StudioWorkspaceProps = {
 };
 
 export function StudioWorkspace({ formPanel, resultsPanel, draftSavedAt, draftReady = false }: StudioWorkspaceProps) {
+  const platformName = getPlatformName();
   const draftLabel = draftSavedAt
     ? `Draft saved ${new Date(draftSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
     : draftReady
@@ -33,7 +35,7 @@ export function StudioWorkspace({ formPanel, resultsPanel, draftSavedAt, draftRe
               </Badge>
             </div>
             <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
-              MITTY Virtual Studio
+              {platformName}
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-white/68 sm:text-base">
               Upload a product. Generate model photos, packshots, and SEO copy.

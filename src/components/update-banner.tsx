@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { APP_VERSION, APP_VERSION_LABEL } from '@/lib/app-version';
+import { getPlatformName } from '@/lib/brand-profile';
 
 const LS_KEY = 'mitty-app-version';
 
@@ -16,6 +17,7 @@ const LS_KEY = 'mitty-app-version';
  */
 export function UpdateBanner() {
   const [showBanner, setShowBanner] = useState(false);
+  const platformName = getPlatformName();
 
   useEffect(() => {
     try {
@@ -61,7 +63,7 @@ export function UpdateBanner() {
       className="fixed inset-x-0 top-0 z-[9999] flex items-center justify-center gap-3 bg-[#171717] px-4 py-2.5 text-sm text-white shadow-lg"
     >
       <span>
-        New MITTY Studio update available. Reload to use{' '}
+        New {platformName} update available. Reload to use{' '}
         <strong>{APP_VERSION_LABEL}</strong>.
       </span>
       <button
