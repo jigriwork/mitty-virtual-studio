@@ -1,6 +1,6 @@
 'use client';
 
-import { Package, Share2, Shirt } from 'lucide-react';
+import { Download, Loader2, Share2, Shirt } from 'lucide-react';
 import { useState } from 'react';
 import JSZip from 'jszip';
 import type { GenerationProgressState, GenerationResults } from '@/lib/types';
@@ -259,15 +259,26 @@ export function ResultsDisplay({
             Regenerate individual views, download single assets, or export the full product pack.
           </p>
         </div>
-        <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-2">
-        <Button onClick={() => void handleDownloadAll()} size="lg" disabled={!productTitle || loadingState.all || zipping} className="h-11 w-full bg-[#171717] text-white hover:bg-[#2a2a2a]">
-            <Package className="mr-2 h-5 w-5" />
-            {zipping ? 'Upscaling to HD…' : 'Download All (.zip)'}
-        </Button>
-        <Button onClick={() => void handleShareAll()} variant="outline" size="lg" disabled={!productTitle || loadingState.all || zipping} className="h-11 w-full bg-white">
-            <Share2 className="mr-2 h-5 w-5" />
-            Share ZIP
-        </Button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center sm:justify-end">
+          <Button
+            onClick={() => void handleDownloadAll()}
+            size="lg"
+            disabled={!productTitle || loadingState.all || zipping}
+            className="h-11 w-full justify-center gap-2 rounded-md bg-[#171717] px-5 text-sm font-semibold text-white hover:bg-[#2a2a2a] sm:w-44"
+          >
+            {zipping ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <Download className="h-4 w-4 shrink-0" />}
+            <span>{zipping ? 'Preparing ZIP' : 'Download ZIP'}</span>
+          </Button>
+          <Button
+            onClick={() => void handleShareAll()}
+            variant="outline"
+            size="lg"
+            disabled={!productTitle || loadingState.all || zipping}
+            className="h-11 w-full justify-center gap-2 rounded-md border-[#d8c39b] bg-white px-5 text-sm font-semibold text-[#171717] hover:bg-[#fff8ea] sm:w-36"
+          >
+            <Share2 className="h-4 w-4 shrink-0" />
+            <span>Share ZIP</span>
+          </Button>
         </div>
       </div>
 
