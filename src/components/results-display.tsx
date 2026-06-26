@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ImageCard } from './image-card';
 import { SeoPreviewPanel } from './seo-preview-panel';
-import { GenerationProgressPanel } from './generation-progress-panel';
+import { GenerationProgressPanel, StickyGenerationProgress } from './generation-progress-panel';
 import { CatalogBuilder } from './catalog-builder';
 import { upscaleToBlob } from '@/lib/image-upscaler';
 import { downloadBlob, shareFileOrDownload } from '@/lib/file-actions';
@@ -200,6 +200,7 @@ export function ResultsDisplay({
   if (!results) {
     return (
       <div className="grid gap-5">
+        <StickyGenerationProgress progress={progress} />
         {progress.status !== 'idle' && (
           <GenerationProgressPanel progress={progress} onRetry={onRetryGeneration} />
         )}
@@ -238,6 +239,7 @@ export function ResultsDisplay({
 
   return (
     <div className="grid gap-5">
+      <StickyGenerationProgress progress={progress} />
       {progress.status !== 'idle' && progress.status !== 'done' && (
         <GenerationProgressPanel progress={progress} onRetry={onRetryGeneration} />
       )}

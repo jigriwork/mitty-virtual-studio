@@ -189,12 +189,17 @@ export type GenerationProgressStep = {
 };
 
 export type GenerationProgressState = {
-  status: 'idle' | 'running' | 'failed' | 'done';
+  status: 'idle' | 'running' | 'failed' | 'partial' | 'done';
   percent: number;
   currentStepId?: string;
   startedAt?: number;
   completedAt?: number;
   failedStepId?: string;
   failedReason?: string;
+  imageTotal?: number;
+  imageCompleted?: number;
+  succeededViews?: string[];
+  failedViews?: string[];
+  summaryMessage?: string;
   steps: GenerationProgressStep[];
 };

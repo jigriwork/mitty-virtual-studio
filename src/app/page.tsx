@@ -87,7 +87,6 @@ type RegenerateUsageSnapshot = {
   isManualColor: boolean;
 };
 
-const progressBands = [0, 10, 20, 40, 60, 80, 100];
 const PLATFORM_ADMIN_EMAILS = new Set(['admin@gpbm.in']);
 
 const defaultProductFormValues: ProductFormValues = {
@@ -172,43 +171,40 @@ const imageStepIdsByCategory: Record<ProductCategory, string[]> = {
 
 const getProgressSteps = (category: ProductCategory): GenerationProgressStep[] => {
   const genericImageLabels = {
-    front: 'Generating front model image',
-    side: 'Generating side/angle image',
-    back: 'Generating back image',
-    flatlay: 'Generating clean flatlay',
+    front: 'Generating image 1 of 4: front model view',
+    side: 'Generating image 2 of 4: side view',
+    back: 'Generating image 3 of 4: back view',
+    flatlay: 'Generating image 4 of 4: flatlay view',
   };
   const categoryImageLabels: Record<ProductCategory, Record<string, string>> = {
     Shirt: genericImageLabels,
     Jeans: genericImageLabels,
     Shoes: genericImageLabels,
     Trousers: {
-      front: 'Generating front trouser image',
-      back: 'Generating back trouser image',
-      texture: 'Generating fabric texture close-up',
-      flatlay: 'Generating flatlay',
+      front: 'Generating image 1 of 4: front trouser view',
+      back: 'Generating image 2 of 4: back trouser view',
+      texture: 'Generating image 3 of 4: fabric texture close-up',
+      flatlay: 'Generating image 4 of 4: flatlay view',
     },
     Perfume: {
-      front: 'Generating bottle front image',
-      side: 'Generating box front image',
-      back: 'Generating box back image',
-      hero: 'Generating hero image',
+      front: 'Generating image 1 of 4: bottle front',
+      side: 'Generating image 2 of 4: box front',
+      back: 'Generating image 3 of 4: box back',
+      hero: 'Generating image 4 of 4: hero image',
     },
   };
 
   return [
-    { id: 'prepare', label: 'Preparing reference photos', status: 'pending' },
-    { id: 'details', label: 'Reading product details', status: 'pending' },
-    { id: 'accuracyLock', label: 'Applying product accuracy lock', status: 'pending' },
-    { id: 'studioConsistency', label: 'Applying studio consistency rules', status: 'pending' },
-    { id: 'seo', label: 'Generating SEO pack', status: 'pending' },
-    { id: 'color', label: 'Detecting final product color', status: 'pending' },
+    { id: 'details', label: 'Validating product details', status: 'pending' },
+    { id: 'prepare', label: 'Preparing product inputs', status: 'pending' },
+    { id: 'seo', label: 'Generating title and description', status: 'pending' },
+    { id: 'imageBatch', label: 'Generating product images', status: 'pending' },
     ...imageStepIdsByCategory[category].map((id) => ({
       id,
       label: categoryImageLabels[category][id],
       status: 'pending' as const,
     })),
-    { id: 'finalizeSeo', label: 'Finalizing SEO pack', status: 'pending' },
-    { id: 'export', label: 'Preparing download/export', status: 'pending' },
+    { id: 'export', label: 'Preparing results and downloads', status: 'pending' },
     { id: 'done', label: 'Done', status: 'pending' },
   ];
 };
@@ -221,14 +217,16 @@ const getProgressPercent = (steps: GenerationProgressStep[], status: GenerationP
   const completedCount = steps.filter((step) => step.status === 'completed').length;
   const rawPercent = (completedCount / steps.length) * 100;
 
-  return progressBands.reduce((nearest, band) =>
-    Math.abs(band - rawPercent) < Math.abs(nearest - rawPercent) ? band : nearest
-  );
+  return Math.min(99, Math.max(0, Math.round(rawPercent)));
 };
 
 const createProgressState = (category: ProductCategory): GenerationProgressState => ({
   status: 'running',
   percent: 0,
+  imageTotal: imageStepIdsByCategory[category].length,
+  imageCompleted: 0,
+  succeededViews: [],
+  failedViews: [],
   startedAt: Date.now(),
   steps: getProgressSteps(category),
 });
@@ -285,6 +283,10 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
   const [draftSavedAt, setDraftSavedAt] = useState<number | undefined>(undefined);
   const userEditedBeforeDraftHydrationRef = useRef(false);
   const previousCategoryRef = useRef<ProductCategory>(defaultProductFormValues.productCategory);
+  const progressSectionRef = useRef<HTMLDivElement | null>(null);
+  const resultsSectionRef = useRef<HTMLDivElement | null>(null);
+  const scrolledToProgressRef = useRef(false);
+  const scrolledToResultsRef = useRef(false);
   const { toast } = useToast();
   const isPlatformAdmin = PLATFORM_ADMIN_EMAILS.has(auth.email.toLowerCase());
 
@@ -324,6 +326,28 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
       return false;
     }
   };
+
+  useEffect(() => {
+    if (progress.status !== 'running' || scrolledToProgressRef.current) {
+      return;
+    }
+
+    scrolledToProgressRef.current = true;
+    window.setTimeout(() => {
+      progressSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }, [progress.status]);
+
+  useEffect(() => {
+    if ((progress.status !== 'done' && progress.status !== 'partial') || !results || scrolledToResultsRef.current) {
+      return;
+    }
+
+    scrolledToResultsRef.current = true;
+    window.setTimeout(() => {
+      resultsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
+  }, [progress.status, results]);
 
   useEffect(() => {
     if (draftHydrated) {
@@ -463,11 +487,14 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
   }, [draftHydrated, productImageUris]);
 
   const onSubmit = async (data: ProductFormValues) => {
+    scrolledToProgressRef.current = false;
+    scrolledToResultsRef.current = false;
     setGenerating({ all: true, frontView: false, sideView: false, backView: false, textureView: false, flatlay: false, heroView: false });
     setProgress(createProgressState(data.productCategory));
     setProductImageUris({});
-    let lastStepId = 'prepare';
+    let lastStepId = 'details';
     let failedReason: string | undefined;
+    let partialSuccessHandled = false;
 
     const markStepActive = (stepId: string) => {
       lastStepId = stepId;
@@ -505,6 +532,33 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
       });
     };
 
+    const updateImageProgress = ({
+      view,
+      status,
+    }: {
+      view: string;
+      status: 'success' | 'failed';
+    }) => {
+      setProgress((prev) => {
+        const succeededViews = status === 'success'
+          ? [...(prev.succeededViews || []), view]
+          : prev.succeededViews || [];
+        const failedViews = status === 'failed'
+          ? [...(prev.failedViews || []), view]
+          : prev.failedViews || [];
+
+        return {
+          ...prev,
+          imageCompleted: succeededViews.length,
+          succeededViews,
+          failedViews,
+          summaryMessage: failedViews.length > 0
+            ? `${succeededViews.length} of ${prev.imageTotal || 0} images completed. ${failedViews.length} failed.`
+            : `${succeededViews.length} of ${prev.imageTotal || 0} images completed.`,
+        };
+      });
+    };
+
     const markStepFailed = (stepId: string, error: unknown) => {
       const reason = getSafeGenerationErrorMessage(error);
       failedReason = reason;
@@ -529,6 +583,25 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
       return reason;
     };
 
+    const markImageStepFailed = (stepId: string, error: unknown) => {
+      const reason = getSafeGenerationErrorMessage(error);
+
+      setProgress((prev) => {
+        const steps = prev.steps.map((step) =>
+          step.id === stepId ? { ...step, status: 'failed' as const, error: reason } : step
+        );
+
+        return {
+          ...prev,
+          steps,
+          summaryMessage: reason,
+          percent: getProgressPercent(steps, prev.status),
+        };
+      });
+
+      return reason;
+    };
+
     const runImageStep = async <T,>(
       stepId: string,
       viewKey: keyof Pick<
@@ -546,9 +619,11 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
 
         setResults((prev) => (prev ? { ...prev, [viewKey]: image } : prev));
         markStepCompleted(stepId);
+        updateImageProgress({ view: stepId, status: 'success' });
         return image;
       } catch (error) {
-        markStepFailed(stepId, error);
+        markImageStepFailed(stepId, error);
+        updateImageProgress({ view: stepId, status: 'failed' });
         throw error;
       }
     };
@@ -564,6 +639,7 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
       isManualColor: boolean;
       items: Array<{ view: string; run: () => Promise<string> }>;
     }) => {
+      markStepActive('imageBatch');
       const settled = await Promise.allSettled(items.map((item) => item.run()));
       const successfulImages = settled.filter((result) => result.status === 'fulfilled').length;
       const failedImages = settled.length - successfulImages;
@@ -589,6 +665,24 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
           isManualColor,
         },
       });
+
+      if (failedImages === 0) {
+        markStepCompleted('imageBatch');
+      } else if (successfulImages > 0) {
+        partialSuccessHandled = true;
+        setProgress((prev) => ({
+          ...prev,
+          status: 'partial',
+          completedAt: Date.now(),
+          currentStepId: undefined,
+          steps: prev.steps.map((step) =>
+            step.id === 'imageBatch' ? { ...step, status: 'completed' as const } : step
+          ),
+          summaryMessage: `${successfulImages} of ${items.length} images completed. ${failedImages} failed.`,
+          failedReason: 'Some images could not be generated. Successful images are still available below.',
+          percent: getProgressPercent(prev.steps, 'partial'),
+        }));
+      }
 
       if (firstFailure?.status === 'rejected') {
         throw firstFailure.reason;
@@ -618,6 +712,8 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
         return opt.dataUri;
       };
 
+      markStepActive('details');
+      markStepCompleted('details');
       markStepActive('prepare');
       const baseFlowInput: Partial<GenerateProductViewInput> = {
         productCategory: data.productCategory,
@@ -726,12 +822,6 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
 
       setProductImageUris(uris);
       markStepCompleted('prepare');
-      markStepActive('details');
-      markStepCompleted('details');
-      markStepActive('accuracyLock');
-      markStepCompleted('accuracyLock');
-      markStepActive('studioConsistency');
-      markStepCompleted('studioConsistency');
 
       // First, generate text and detect color
       markStepActive('seo');
@@ -768,10 +858,8 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
         throw error;
       }
       markStepCompleted('seo');
-      markStepActive('color');
       const detectedColor = textResult.detectedColor;
       const effectiveColor = isManualColor ? selectedColor : detectedColor;
-      markStepCompleted('color');
 
       setResults(
         createSeoOnlyResult(
@@ -842,8 +930,6 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
         });
       }
 
-      markStepActive('finalizeSeo');
-      markStepCompleted('finalizeSeo');
       markStepActive('export');
       markStepCompleted('export');
       markStepActive('done');
@@ -851,6 +937,15 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
       incrementProductsGenerated();
     } catch (e) {
       console.error(e);
+      if (partialSuccessHandled) {
+        toast({
+          variant: 'destructive',
+          title: 'Partial Generation Complete',
+          description: 'Some images could not be generated. Successful images are still available below.',
+        });
+        return;
+      }
+
       const safeReason = failedReason || markStepFailed(lastStepId, e);
       toast({
         variant: 'destructive',
@@ -1103,20 +1198,24 @@ function AuthenticatedStudio({ auth }: { auth: AuthContextValue }) {
       draftSavedAt={draftSavedAt}
       formPanel={<ProductForm form={form} onSubmit={onSubmit} isLoading={generating.all} />}
       resultsPanel={
-        <ResultsDisplay
-          results={results}
-          loadingState={generating}
-          onRegenerateFrontView={handleRegenerateFrontView}
-          onRegenerateSideView={handleRegenerateSideView}
-          onRegenerateBackView={handleRegenerateBackView}
-          onRegenerateTextureView={handleRegenerateTextureView}
-          onRegenerateFlatlay={handleRegenerateFlatlay}
-          onRegenerateHeroView={handleRegenerateHeroView}
-          progress={progress}
-          onRetryGeneration={() => {
-            void form.handleSubmit(onSubmit)();
-          }}
-        />
+        <div ref={progressSectionRef}>
+          <div ref={resultsSectionRef}>
+            <ResultsDisplay
+              results={results}
+              loadingState={generating}
+              onRegenerateFrontView={handleRegenerateFrontView}
+              onRegenerateSideView={handleRegenerateSideView}
+              onRegenerateBackView={handleRegenerateBackView}
+              onRegenerateTextureView={handleRegenerateTextureView}
+              onRegenerateFlatlay={handleRegenerateFlatlay}
+              onRegenerateHeroView={handleRegenerateHeroView}
+              progress={progress}
+              onRetryGeneration={() => {
+                void form.handleSubmit(onSubmit)();
+              }}
+            />
+          </div>
+        </div>
       }
     />
   );
