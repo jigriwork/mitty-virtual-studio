@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { getSupabaseBrowserClient, hasSupabaseBrowserConfig } from '@/lib/supabase/client';
 import { APP_VERSION_LABEL } from '@/lib/app-version';
+import { getBrandName, getPlatformName } from '@/lib/brand-profile';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -88,6 +89,8 @@ export function AuthGate({ children }: AuthGateProps) {
   const { toast } = useToast();
   const isSupabaseConfigured = useMemo(() => hasSupabaseBrowserConfig(), []);
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
+  const brandName = getBrandName();
+  const platformName = getPlatformName();
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -166,7 +169,7 @@ export function AuthGate({ children }: AuthGateProps) {
       toast({
         variant: 'destructive',
         title: 'Login failed',
-        description: 'Check the email and password for an existing Mitty account.',
+        description: `Check the email and password for an existing ${brandName} account.`,
       });
     }
 
@@ -190,7 +193,7 @@ export function AuthGate({ children }: AuthGateProps) {
               <div className="flex items-center gap-3">
                 <MittyLogo className="h-12 w-12" />
                 <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#8a6635]">MITTY</p>
+                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#8a6635]">{brandName}</p>
                   <h1 className="text-2xl font-semibold text-[#171717]">Setup Required</h1>
                 </div>
               </div>
@@ -211,14 +214,14 @@ export function AuthGate({ children }: AuthGateProps) {
             <div className="flex items-center gap-3">
               <MittyLogo className="h-12 w-12" />
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#8a6635]">MITTY</p>
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#8a6635]">{brandName}</p>
                 <h1 className="text-2xl font-semibold text-[#171717]">Studio Login</h1>
               </div>
             </div>
 
             <div className="mt-7 flex items-center gap-3 rounded-lg border border-black/10 bg-[#171717] p-4 text-white">
               <LockKeyhole className="h-5 w-5 text-[#f4d99f]" />
-              <p className="text-sm text-white/75">Existing Mitty team accounts only.</p>
+              <p className="text-sm text-white/75">Existing {brandName} team accounts only.</p>
             </div>
 
             <form onSubmit={handleLogin} className="mt-7 grid gap-4">
@@ -252,7 +255,7 @@ export function AuthGate({ children }: AuthGateProps) {
           </CardContent>
         </Card>
         <p className="mt-6 text-center text-xs text-[#8a6635]/60">
-          MITTY Virtual Studio &bull; {APP_VERSION_LABEL}
+          {platformName} &bull; {APP_VERSION_LABEL}
         </p>
         <Link href="/" className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-[#8a6635]/70 transition-colors hover:text-[#8a6635]">
           <ArrowLeft className="h-3 w-3" /> Back to Homepage

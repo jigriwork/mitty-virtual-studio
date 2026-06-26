@@ -14,6 +14,7 @@ import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { MittyLogo } from '@/components/mitty-logo';
 import { APP_VERSION, APP_VERSION_LABEL } from '@/lib/app-version';
+import { getBrandName, getPlatformName } from '@/lib/brand-profile';
 import { cn } from '@/lib/utils';
 
 export type AppSection = 'studio' | 'bulkImport' | 'products' | 'review' | 'settings' | 'usage' | 'staff';
@@ -45,11 +46,13 @@ type AppShellProps = {
 };
 
 export function AppShell({ activeSection, onSectionChange, children, userEmail, userRole, isPlatformAdmin, onLogout }: AppShellProps) {
+  const platformName = getPlatformName();
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(183,141,74,0.12),_transparent_32rem),linear-gradient(180deg,_#faf7f0_0%,_#f4efe6_100%)] text-foreground">
       <SidebarNav activeSection={activeSection} onSectionChange={onSectionChange} userRole={userRole} isPlatformAdmin={isPlatformAdmin} />
       <div className="min-h-screen min-w-0 lg:pl-72">
-        <Header userEmail={userEmail} userRole={userRole} onLogout={onLogout} />
+        <Header userEmail={userEmail} userRole={userRole} onLogout={onLogout} platformName={platformName} />
         <main className="min-w-0 px-4 pb-28 pt-4 sm:px-6 lg:px-8 lg:pb-8">
           {children}
         </main>
@@ -63,7 +66,8 @@ function Header({
   userEmail,
   userRole,
   onLogout,
-}: Pick<AppShellProps, 'userEmail' | 'userRole' | 'onLogout'>) {
+  platformName,
+}: Pick<AppShellProps, 'userEmail' | 'userRole' | 'onLogout'> & { platformName: string }) {
   return (
     <header className="sticky top-0 z-30 border-b border-black/10 bg-[#faf7f0]/90 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center justify-between gap-3">
@@ -71,7 +75,7 @@ function Header({
           <MittyLogo className="h-10 w-10 shrink-0" />
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold uppercase tracking-[0.18em] text-[#8a6635]">
-              MITTY Studio <span className="text-[10px] font-normal normal-case tracking-normal text-[#8a6635]/50">v{APP_VERSION}</span>
+              {platformName} <span className="text-[10px] font-normal normal-case tracking-normal text-[#8a6635]/50">v{APP_VERSION}</span>
             </p>
             <h1 className="truncate text-lg font-semibold text-[#171717] sm:text-xl">
               Virtual Studio Dashboard
@@ -99,6 +103,8 @@ function SidebarNav({
   userRole,
   isPlatformAdmin,
 }: Pick<AppShellProps, 'activeSection' | 'onSectionChange' | 'userRole' | 'isPlatformAdmin'>) {
+  const brandName = getBrandName();
+  const platformName = getPlatformName();
   const visibleNavItems = navItems.filter((item) =>
     item.id !== 'review' &&
     (item.id !== 'staff' || userRole === 'owner') &&
@@ -112,7 +118,7 @@ function SidebarNav({
           <MittyLogo className="h-11 w-11" />
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#d4b06a]">
-              MITTY
+              {brandName}
             </p>
             <p className="text-sm text-white/60">Product content studio</p>
           </div>
@@ -129,7 +135,7 @@ function SidebarNav({
           ))}
         </nav>
         <div className="mt-auto rounded-lg border border-white/10 bg-white/[0.04] p-4">
-          <p className="text-sm font-medium">MITTY Virtual Studio</p>
+          <p className="text-sm font-medium">{platformName}</p>
           <p className="mt-1 text-xs leading-5 text-white/55">
             Create product visuals and listing copy from a guided studio workflow.
           </p>

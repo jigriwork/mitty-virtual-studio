@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { UpdateBanner } from "@/components/update-banner"
+import { getPlatformName } from '@/lib/brand-profile';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -10,17 +11,17 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  applicationName: 'MITTY Virtual Studio',
+  applicationName: getPlatformName(),
   title: {
-    default: 'MITTY Virtual Studio',
-    template: '%s | MITTY Virtual Studio',
+    default: getPlatformName(),
+    template: `%s | ${getPlatformName()}`,
   },
   description: 'E-commerce product content and catalog generation',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'MITTY Studio',
+    title: getPlatformName(),
   },
   icons: {
     icon: [

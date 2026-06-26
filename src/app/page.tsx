@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { getBrandName, getPlatformName } from '@/lib/brand-profile';
 import {
-  ArrowRight,
   BadgeCheck,
   Camera,
   CheckCircle2,
@@ -16,9 +16,9 @@ import {
   Gem,
   Images,
   Layers,
+  LogIn,
   Menu,
   PackageCheck,
-  Send,
   Shirt,
   ShoppingBag,
   Sparkles,
@@ -97,12 +97,14 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 }
 
 function OutputPreview() {
+  const platformName = getPlatformName();
+
   return (
     <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl shadow-neutral-900/10">
       <div className="relative aspect-[4/3] w-full bg-neutral-100">
         <Image
           src="/mitty-homepage-hero.png"
-          alt="MITTY Studio product catalog workflow preview"
+          alt={`${platformName} product catalog workflow preview`}
           fill
           sizes="(min-width: 1024px) 520px, 100vw"
           className="object-cover"
@@ -127,6 +129,8 @@ function OutputPreview() {
 
 export default function HomePage() {
   const [mobileNav, setMobileNav] = useState(false);
+  const brandName = getBrandName();
+  const platformName = getPlatformName();
 
   const navLinks = [
     { label: 'Results', href: '#results' },
@@ -181,8 +185,8 @@ export default function HomePage() {
       <header className="fixed inset-x-0 top-0 z-50 border-b border-neutral-100 bg-white/90 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
           <Link href="/" className="flex items-center gap-2.5">
-            <Image src="/mitty-studio-logo.png" alt="MITTY Studio" width={36} height={36} className="h-9 w-9 rounded-sm object-contain" priority />
-            <span className="text-base font-bold tracking-tight">MITTY Studio</span>
+            <Image src="/mitty-studio-logo.png" alt={platformName} width={36} height={36} className="h-9 w-9 rounded-sm object-contain" priority />
+            <span className="text-base font-bold tracking-tight">{platformName}</span>
           </Link>
 
           <nav className="hidden items-center gap-7 md:flex">
@@ -195,7 +199,7 @@ export default function HomePage() {
 
           <div className="flex items-center gap-3">
             <Link href="/studio" className="hidden rounded-lg bg-[#0a0a0a] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1a1a1a] md:inline-flex">
-              Request Demo
+              Login
             </Link>
             <button type="button" onClick={() => setMobileNav(!mobileNav)} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:bg-neutral-100 md:hidden" aria-label="Menu">
               {mobileNav ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -211,7 +215,7 @@ export default function HomePage() {
               </a>
             ))}
             <Link href="/studio" onClick={() => setMobileNav(false)} className="mt-3 block w-full rounded-lg bg-[#0a0a0a] py-3 text-center text-sm font-semibold text-white">
-              Request Demo
+              Login
             </Link>
           </div>
         )}
@@ -231,7 +235,7 @@ export default function HomePage() {
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <Link href="/studio" className="inline-flex items-center gap-2 rounded-lg bg-[#0a0a0a] px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#1a1a1a]">
-                Request Demo Access <ArrowRight className="h-4 w-4" />
+                Login <LogIn className="h-4 w-4" />
               </Link>
               <a href="#results" className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 px-6 py-3.5 text-sm font-semibold text-[#0a0a0a] transition-colors hover:border-neutral-400 hover:bg-neutral-50">
                 See Sample Output
@@ -258,9 +262,9 @@ export default function HomePage() {
           <SectionBadge dark>Before to listing</SectionBadge>
           <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-end">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Show visitors the result before they ask for a demo.</h2>
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Show users the result before they start the app.</h2>
               <p className="mt-4 max-w-xl text-neutral-400">
-                MITTY Studio is built to convert a basic product photo into the pieces a selling page needs.
+                {platformName} is built to convert a basic product photo into the pieces a selling page needs.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-4">
@@ -378,14 +382,14 @@ export default function HomePage() {
         <Reveal>
           <div className="grid gap-10 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
             <div>
-              <SectionBadge dark>Private demo access</SectionBadge>
-              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">See how MITTY Studio fits your product workflow.</h2>
+              <SectionBadge dark>Secure app login</SectionBadge>
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Login to {platformName} for your product workflow.</h2>
               <p className="mt-5 max-w-xl text-lg leading-relaxed text-neutral-400">
                 Built for retail businesses that upload products regularly and want a faster path from stock arrival to online listing.
               </p>
               <div className="mt-8 flex flex-wrap gap-4">
                 <Link href="/studio" className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3.5 text-sm font-semibold text-[#0a0a0a] transition-colors hover:bg-neutral-100">
-                  Request Demo Access <Send className="h-4 w-4" />
+                  Login <LogIn className="h-4 w-4" />
                 </Link>
                 <a href="#faq" className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-white/5">
                   Read FAQ
@@ -409,30 +413,30 @@ export default function HomePage() {
       <Section id="faq">
         <Reveal>
           <SectionBadge>FAQ</SectionBadge>
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Questions buyers ask before a demo.</h2>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Questions users ask before logging in.</h2>
         </Reveal>
         <div className="mx-auto mt-12 max-w-3xl">
           <FaqItem q="Do I need professional product photos?" a="No. You can start with clear product photos from a phone or camera. Better source photos usually create better output, but the workflow is designed for practical retail use." />
-          <FaqItem q="What does MITTY Studio create?" a="It creates product images, SEO-ready titles, descriptions, catalog attributes, and export-ready content for product listing workflows." />
-          <FaqItem q="Is it only for clothing?" a="No. MITTY Studio supports fashion, jewellery, watches, footwear, perfumes, bags, accessories, boutiques, D2C brands, and marketplace sellers." />
+          <FaqItem q={`What does ${platformName} create?`} a="It creates product images, SEO-ready titles, descriptions, catalog attributes, and export-ready content for product listing workflows." />
+          <FaqItem q="Is it only for clothing?" a={`${platformName} supports fashion, jewellery, watches, footwear, perfumes, bags, accessories, boutiques, D2C brands, and marketplace sellers.`} />
           <FaqItem q="Can my team export catalog content?" a="Yes. The workflow is designed to prepare content that can be downloaded and used by catalog or marketplace upload teams." />
-          <FaqItem q="Is public signup open?" a="Public signup is not open right now. Access is currently through private demo." />
+          <FaqItem q="Is public signup open?" a={`Public signup is not open right now. Login is available for existing ${brandName} team accounts.`} />
         </div>
       </Section>
 
       <footer className="border-t border-neutral-200 bg-white px-5 pb-24 pt-10 sm:px-8 md:pb-10">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex items-center gap-2.5">
-            <Image src="/mitty-studio-logo.png" alt="MITTY Studio" width={28} height={28} className="h-7 w-7 rounded-sm object-contain" />
-            <span className="text-sm font-bold tracking-tight">MITTY Studio</span>
+            <Image src="/mitty-studio-logo.png" alt={platformName} width={28} height={28} className="h-7 w-7 rounded-sm object-contain" />
+            <span className="text-sm font-bold tracking-tight">{platformName}</span>
           </div>
-          <p className="text-xs text-neutral-400">&copy; {new Date().getFullYear()} MITTY Studio. All rights reserved.</p>
+          <p className="text-xs text-neutral-400">&copy; {new Date().getFullYear()} {brandName}. All rights reserved.</p>
         </div>
       </footer>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-neutral-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur md:hidden">
         <Link href="/studio" className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#0a0a0a] px-5 py-3 text-sm font-semibold text-white">
-          Request Demo Access <ArrowRight className="h-4 w-4" />
+          Login <LogIn className="h-4 w-4" />
         </Link>
       </div>
     </div>

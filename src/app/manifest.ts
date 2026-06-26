@@ -1,10 +1,14 @@
 import type { MetadataRoute } from 'next';
+import { getBrandName, getPlatformName } from '@/lib/brand-profile';
 
 export default function manifest(): MetadataRoute.Manifest {
+  const brandName = getBrandName();
+  const platformName = getPlatformName();
+
   return {
-    name: 'MITTY Virtual Studio',
-    short_name: 'MITTY Studio',
-    description: 'E-commerce product content and catalog generation for MITTY products.',
+    name: platformName,
+    short_name: platformName,
+    description: `E-commerce product content and catalog generation for ${brandName} products.`,
     start_url: '/',
     scope: '/',
     display: 'standalone',
