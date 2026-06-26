@@ -15,7 +15,6 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import {
-    Table,
     TableBody,
     TableCell,
     TableHead,
@@ -222,7 +221,7 @@ export function UsageLogs() {
                 <SummaryCard label="Failed / partial logs" value={todaySummary.failedOrPartial.toString()} />
             </div>
 
-            <Card className="border-black/10 bg-white shadow-sm">
+            <Card className="min-w-0 border-black/10 bg-white shadow-sm">
                 <CardHeader className="border-b border-black/10">
                     <CardTitle className="text-lg text-[#171717]">Latest logs</CardTitle>
                     <div className="grid gap-3 pt-3 md:grid-cols-3">
@@ -260,29 +259,32 @@ export function UsageLogs() {
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent className="p-0">
+                <CardContent className="min-w-0 p-0">
                     {errorMessage ? (
                         <div className="flex items-center gap-2 p-5 text-sm text-destructive">
                             <AlertCircle className="h-4 w-4" />
                             {errorMessage}
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <Table>
+                        <>
+                        <p className="px-5 py-3 text-sm text-muted-foreground">Scroll sideways to view all columns.</p>
+                        <div className="w-full overflow-x-auto overflow-y-hidden border-t border-black/10 pb-3 [scrollbar-color:#8a6635_#f4efe6] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#8a6635] [&::-webkit-scrollbar-track]:bg-[#f4efe6] [&::-webkit-scrollbar]:h-3">
+                            <div className="min-w-[1360px]">
+                            <table className="w-full caption-bottom text-sm">
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead className="min-w-44">created_at</TableHead>
                                         <TableHead className="min-w-48">user_email</TableHead>
-                                        <TableHead>generation_type</TableHead>
-                                        <TableHead>category</TableHead>
-                                        <TableHead className="text-right">requested</TableHead>
-                                        <TableHead className="text-right">successful</TableHead>
-                                        <TableHead className="text-right">failed</TableHead>
-                                        <TableHead className="text-right">image cost</TableHead>
-                                        <TableHead className="text-right">text cost</TableHead>
-                                        <TableHead className="text-right">total cost</TableHead>
-                                        <TableHead>status</TableHead>
-                                        <TableHead className="min-w-44">safe metadata</TableHead>
+                                        <TableHead className="min-w-44">generation_type</TableHead>
+                                        <TableHead className="min-w-24">category</TableHead>
+                                        <TableHead className="min-w-24 text-right">requested</TableHead>
+                                        <TableHead className="min-w-24 text-right">successful</TableHead>
+                                        <TableHead className="min-w-20 text-right">failed</TableHead>
+                                        <TableHead className="min-w-24 text-right">image cost</TableHead>
+                                        <TableHead className="min-w-24 text-right">text cost</TableHead>
+                                        <TableHead className="min-w-24 text-right">total cost</TableHead>
+                                        <TableHead className="min-w-28">status</TableHead>
+                                        <TableHead className="min-w-52">safe metadata</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -312,16 +314,18 @@ export function UsageLogs() {
                                                 <TableCell className="text-right">{formatInr(log.estimated_image_cost_inr)}</TableCell>
                                                 <TableCell className="text-right">{formatInr(log.estimated_text_cost_inr)}</TableCell>
                                                 <TableCell className="text-right font-medium">{formatInr(log.estimated_total_cost_inr)}</TableCell>
-                                                <TableCell>
+                                                <TableCell className="whitespace-nowrap">
                                                     <Badge variant={log.status === 'success' ? 'outline' : 'destructive'}>{log.status}</Badge>
                                                 </TableCell>
-                                                <TableCell className="text-muted-foreground">{getSafeMetadataLabel(log.metadata)}</TableCell>
+                                                <TableCell className="whitespace-nowrap text-muted-foreground">{getSafeMetadataLabel(log.metadata)}</TableCell>
                                             </TableRow>
                                         ))
                                     )}
                                 </TableBody>
-                            </Table>
+                            </table>
+                            </div>
                         </div>
+                        </>
                     )}
                 </CardContent>
             </Card>
