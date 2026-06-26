@@ -8,9 +8,12 @@
  */
 
 import {ai} from '@/ai/genkit';
+import { getCurrentBrandProfile } from '@/lib/brand-profile';
 import {z} from 'genkit';
 import { GenerateProductViewInputSchema, type GenerateProductViewInput } from './types';
 
+// Brand values are currently static and will later come from organization brand settings.
+const brandProfile = getCurrentBrandProfile();
 
 const GenerateProductTitleDescriptionOutputSchema = z.object({
   seoTitle: z.string().describe('A concise SEO-focused product title for ecommerce listing pages.'),
@@ -45,29 +48,39 @@ const prompt = ai.definePrompt({
   name: 'generateProductTitleDescriptionPrompt',
   input: {schema: GenerateProductViewInputSchema},
   output: {schema: GenerateProductTitleDescriptionOutputSchema},
-  prompt: `You are an expert ecommerce catalog writer for MITTY, a premium but simple fashion and lifestyle brand for the Indian market.
+  prompt: `You are an expert ecommerce catalog writer for ${brandProfile.brandName}, a ${brandProfile.businessType} for the Indian market.
+
+  Brand profile:
+  - Brand name: ${brandProfile.brandName}
+  - Website: ${brandProfile.website}
+  - Tagline: ${brandProfile.tagline}
+  - Tone: ${brandProfile.tone}
+  - Target audience: ${brandProfile.targetAudience}
+  - Language preference: ${brandProfile.languagePreference}
+  - Default CTA: ${brandProfile.defaultCTA}
 
   Generate a complete SEO-ready content pack from the product details and uploaded image(s). Use natural, professional catalog language. Keep the copy premium and clear, never cheap, exaggerated, or keyword-stuffed.
 
   Core rules:
   1. Determine the final color. If User-provided Color exists and is not N/A, detectedColor MUST exactly equal the User-provided Color, with the same shade wording. Do not override, reinterpret, lighten, darken, or replace a user-provided color based on uploaded image lighting. If User-provided Color is N/A, detect the primary product color from the image(s). Return it in detectedColor using a specific name such as Navy Blue, Olive Green, Beige, Teal, or Purple.
-  2. productTitle MUST start with "Mitty".
+  2. productTitle MUST start with "${brandProfile.brandName}".
   3. productDescription MUST exactly match longDescription for backward compatibility.
-  4. Use Mitty branding naturally. Do not invent any brand name other than Mitty.
+  4. Use ${brandProfile.brandName} branding naturally. Do not invent any brand name other than ${brandProfile.brandName}.
   5. Do not mention AI, prompts, generated images, discounts, price, sizes, warranty, stock, delivery, or availability.
   6. Do not claim exact fabric, cotton, premium cotton, breathable fabric, easy care, wrinkle-free finish, stretch, luxury fabric, leather, slim fit, waterproofing, sole technology, or long-lasting perfume performance unless it is explicitly provided in the product details.
   7. Prefer safe wording such as "designed for", "ideal for", "suitable for", "clean look", "smart styling", "smooth finish", "polished look", "pairs well with", and "gives a refined look".
-  8. Avoid generic repeated phrases. Make the pack specific to the product category, final color, pattern, selected fields, and visible details. If User-provided Color exists, productTitle, descriptions, alt text, and styling should use that exact colour wording.
+  8. Avoid generic repeated phrases. Make the pack specific to the product category, final color, pattern, selected fields, visible details, ${brandProfile.tone} tone, and ${brandProfile.targetAudience}. If User-provided Color exists, productTitle, descriptions, alt text, and styling should use that exact colour wording.
   9. Slug must be lowercase, hyphenated, and based on the productTitle.
   10. Meta title should be concise. Meta description should be ecommerce-ready and under 160 characters when possible.
   11. Gender/Target safety: If gender is Male, write for men's fashion/use. If gender is Female, write for women's fashion/use. If gender is Unisex, write for unisex use. Do not overclaim beyond the uploaded product, selected category, and provided product details.
+  12. If a call to action is useful in description or meta copy, use this exact CTA: ${brandProfile.defaultCTA}.
 
   Category-specific guidance:
   - Shirt: mention full sleeve or half sleeve when selected. Mention color and pattern when provided or visible. Use office wear, smart casual, meetings, dinners, and everyday styling where relevant.
   - Trousers: mention formal or casual based on the provided type/fit wording. Mention office wear or daily styling based on that type. Avoid exact fabric claims unless fabricType is provided.
   - Jeans: mention casual wear, street-smart styling, weekend looks, and daily comfort. Avoid exact fit claims unless fitType is provided.
   - Shoes: mention formal or casual based on the provided material/type clues and image. Mention occasion styling. Avoid sole/material claims unless provided.
-  - Perfume: mention fragrance family and size if provided. If fragranceName is provided, use it. If not, create a tasteful Mitty fragrance name from the family and target audience. Use "Extrait De Parfum" as the perfume type. Avoid medical, attraction, performance, or long-lasting claims unless explicitly provided.
+  - Perfume: mention fragrance family and size if provided. If fragranceName is provided, use it. If not, create a tasteful ${brandProfile.brandName} fragrance name from the family and target audience. Use "Extrait De Parfum" as the perfume type. Avoid medical, attraction, performance, or long-lasting claims unless explicitly provided.
 
   Required output fields:
   - seoTitle
